@@ -21,6 +21,14 @@ export type SessionUser = {
   authenticatedAt: Date;
 };
 
+/**
+ * Counts an attempt in its own committed transaction, so a failed attempt
+ * (which rolls back the caller's transaction) is still counted.
+ */
+export async function countAttempt(bucket: string, limit: number, windowSeconds: number) {
+  await withAnon((c) => rateLimit(c, bucket, limit, windowSeconds));
+}
+
 /** Fixed-window limiter stored in Postgres so it survives restarts and scales across instances. */
 export async function rateLimit(c: Db, bucket: string, limit: number, windowSeconds: number) {
   const r = await one<{ count: number }>(
@@ -114,9 +122,9 @@ export async function createSession(c: Db, userId: string, userAgent: string | n
 
 export async function signIn(input: { email: string; password: string; ip: string; userAgent: string | null }) {
   const parsed = emailSchema.safeParse(input.email);
+  await countAttempt(`signin:ip:${input.ip}`, 30, 900);
+  if (parsed.success) await countAttempt(`signin:email:${parsed.data}`, 10, 900);
   return withAnon(async (c) => {
-    await rateLimit(c, `signin:ip:${input.ip}`, 30, 900);
-    if (parsed.success) await rateLimit(c, `signin:email:${parsed.data}`, 10, 900);
     const user = parsed.success
       ? await one<{ id: string; password_hash: string | null; state: string }>(
           c, "SELECT id, password_hash, state FROM users WHERE email = $1", [parsed.data])
@@ -223,8 +231,8 @@ export async function resetPassword(token: string, password: string) {
 
 /** Sensitive actions (deletion, email change) need a recent password check. */
 export async function reauthenticate(user: SessionUser, sessionToken: string, password: string) {
+  await countAttempt(`reauth:${user.id}`, 10, 900);
   await withAnon(async (c) => {
-    await rateLimit(c, `reauth:${user.id}`, 10, 900);
     const row = await one<{ password_hash: string }>(c, "SELECT password_hash FROM users WHERE id = $1", [user.id]);
     if (!(await verifyPassword(password, row?.password_hash ?? null))) fail("unauthenticated", "That password isn't right.");
     await c.query("UPDATE sessions SET authenticated_at = now() WHERE token_hash = $1", [sha256(sessionToken)]);
