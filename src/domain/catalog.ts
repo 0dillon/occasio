@@ -164,7 +164,7 @@ export async function getDetail(c: Db, id: string, userId: string | null, staff 
   );
   const deadlines = await many<DeadlineRecord>(
     c, "SELECT * FROM opportunity_deadlines WHERE opportunity_id = $1 AND is_current ORDER BY kind", [id]);
-  return { ...rowToPreview(r, entitled), rules, sources, deadlines };
+  return { ...(r as Omit<OpportunityDetail, "rules" | "sources" | "deadlines">), ...rowToPreview(r, entitled), rules, sources, deadlines };
 }
 
 /** Plain-language trust/freshness statements; never a single "verified" badge. */
