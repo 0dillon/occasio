@@ -40,7 +40,7 @@ export async function processPoster(input: Buffer) {
   const isPng = magic.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const isWebp = magic.subarray(0, 4).toString() === "RIFF" && magic.subarray(8, 12).toString() === "WEBP";
   if (!isJpeg && !isPng && !isWebp) throw new UploadRejected("Upload a PNG, JPG or WebP image.");
-  let meta: sharp.Metadata;
+  let meta: Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
   try {
     meta = await sharp(input, { limitInputPixels: productRules.proposed.maxImagePixels }).metadata();
   } catch {
