@@ -18,15 +18,20 @@
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "test": "vitest run",
-    "test:e2e": "node tests/e2e/run.mjs"
+    "test:e2e": "node tests/e2e/run.mjs",
+    "db:setup-roles": "tsx --env-file=.env.local scripts/setup-roles.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1161.0",
     "@fontsource-variable/manrope": "5.2.8",
+    "@neondatabase/serverless": "1.2.0",
     "next": "16.4.4",
     "pg": "8.16.3",
     "react": "19.2.9",
     "react-dom": "19.2.9",
+    "server-only": "0.0.1",
     "sharp": "0.35.5",
+    "ws": "8.18.3",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -34,6 +39,7 @@
     "@types/pg": "8.15.6",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "@types/ws": "8.18.1",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vitest": "5.1.0"
