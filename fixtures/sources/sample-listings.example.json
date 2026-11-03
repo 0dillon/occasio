@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Sample Community Builders Programme",
+    "url": "https://sample-listings.example/community-builders",
+    "organizer": "Example Community Org (sample)",
+    "category": "fellowship",
+    "summary": "SAMPLE DATA. A fictional programme used to demonstrate discovery review. It does not exist."
+  },
+  {
+    "title": "Sample Student Robotics Challenge",
+    "url": "https://sample-listings.example/robotics-challenge",
+    "organizer": "Example Robotics League (sample)",
+    "category": "competition",
+    "summary": "SAMPLE DATA. A fictional competition used to demonstrate discovery review. It does not exist."
+  }
+]
