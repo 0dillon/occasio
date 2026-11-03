@@ -12,6 +12,16 @@ import { asUser, requireStaff } from "@/server/session";
 
 export const metadata = { title: "Review" };
 
+/** Readable evidence value: drops empty keys instead of printing nulls. */
+function showValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "Not found";
+  if (typeof v !== "object") return String(v);
+  const parts = Object.entries(v as Record<string, unknown>)
+    .filter(([k, x]) => x !== null && x !== undefined && x !== "" && x !== false && k !== "excerpt")
+    .map(([k, x]) => `${k.replace(/_/g, " ")}: ${typeof x === "object" ? JSON.stringify(x) : String(x)}`);
+  return parts.length ? parts.join(" · ") : "Not found";
+}
+
 export default async function ReviewDetail({ params }: { params: Promise<{ id: string }> }) {
   const u = await requireStaff("reviewer");
   const { id } = await params;
@@ -40,7 +50,7 @@ export default async function ReviewDetail({ params }: { params: Promise<{ id: s
           <TileHead kicker="What the contributor gave" />
           <dl className="kv">
             <dt>Link</dt><dd><a href={s.application_url} target="_blank" rel="noopener noreferrer nofollow" className="mono">{s.application_url}</a></dd>
-            {Object.entries(s.claimed ?? {}).map(([k, v]) => (<Fragment key={k}><dt>{k.replace(/_/g, " ")}</dt><dd>{String(v)}</dd></Fragment>))}
+            {Object.entries(s.claimed ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => (<Fragment key={k}><dt>{k.replace(/_/g, " ")}</dt><dd>{String(v)}</dd></Fragment>))}
             {s.user_note ? (<><dt>Note</dt><dd>{s.user_note}</dd></>) : null}
           </dl>
           {assets.map((a: any) => <img key={a.id} className="poster" src={`/api/v1/assets/${a.id}`} alt="Poster uploaded with this submission" />)}
@@ -64,7 +74,7 @@ export default async function ReviewDetail({ params }: { params: Promise<{ id: s
           {evidence.length ? (
             <div className="table-wrap"><table className="table">
               <thead><tr><th scope="col">Field</th><th scope="col">Value</th><th scope="col">From</th><th scope="col">Excerpt</th></tr></thead>
-              <tbody>{evidence.map((e: any, i: number) => <tr key={i}><td>{e.field_path}</td><td>{JSON.stringify(e.value)}</td><td>{e.origin.replace(/_/g, " ")}</td><td className="muted">{e.excerpt}</td></tr>)}</tbody>
+              <tbody>{evidence.map((e: any, i: number) => <tr key={i}><td>{e.field_path}</td><td>{showValue(e.value)}</td><td>{e.origin.replace(/_/g, " ")}</td><td className="muted">{e.excerpt}</td></tr>)}</tbody>
             </table></div>
           ) : null}
           {runs.length ? <p className="muted" style={{ margin: 0, fontSize: 14 }}>Last check: {runs[0].extractor}, decision {runs[0].decision}, {when(runs[0].created_at)}.</p> : null}
