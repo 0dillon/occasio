@@ -253,3 +253,45 @@ export async function redeem(c: Db, userId: string, matchRequestId: string, now 
 export async function matchFeedback(c: Db, userId: string, id: string, feedback: "useful" | "not_interested") {
   await c.query("UPDATE match_requests SET feedback = $3 WHERE id = $1 AND user_id = $2", [id, userId, feedback]);
 }
+
+/**
+ * Direct request from a bank preview: the same redemption gate and
+ * eligibility check run for the one record the person picked. Never debits;
+ * the person still confirms the unlock on the match page.
+ */
+export async function createDirectMatch(c: Db, userId: string, opportunityId: string, now = new Date()) {
+  if (!/^[0-9a-f-]{36}$/.test(opportunityId)) fail("not_found", "Opportunity not found.");
+  const o = await one<Candidate>(c, `${CANDIDATE_SQL} WHERE o.id = $1`, [opportunityId]);
+  if (!o) fail("not_found", "Opportunity not found.");
+  const elig = ((await one<UserEligibility>(
+    c, "SELECT residence_country, citizenships, education_level, age_band, experience_level FROM user_eligibility WHERE user_id = $1", [userId],
+  )) ?? { residence_country: null, citizenships: null, education_level: null, age_band: null, experience_level: null }) as UserEligibility;
+  const gate = redeemableGate(o!, now);
+  const e = evaluate(o!.rules ?? [], elig);
+  const mr = await one<{ id: string }>(
+    c,
+    "INSERT INTO match_requests(user_id, query_text, constraints, state) VALUES ($1, NULL, $2, 'open') RETURNING id",
+    [userId, JSON.stringify({ direct: opportunityId })],
+  );
+  const id = mr!.id;
+  if (!gate.ok) {
+    await c.query("UPDATE match_requests SET state = 'no_match', explanation = $2 WHERE id = $1", [id, JSON.stringify({ excluded: { [gate.reason]: 1 }, considered: 1, direct: true })]);
+  } else if (e.outcome === "ineligible") {
+    await c.query("UPDATE match_requests SET state = 'no_match', explanation = $2 WHERE id = $1", [id, JSON.stringify({ excluded: { "Doesn't fit your eligibility": 1 }, considered: 1, direct: true, reasons: e.results.filter((r) => r.outcome === "ineligible").map((r) => r.reason) })]);
+  } else if (e.outcome === "unknown") {
+    await c.query("UPDATE match_requests SET state = 'needs_clarification', clarifications = $2, explanation = $3 WHERE id = $1", [
+      id, e.results.filter((r) => r.outcome === "unknown").map((r) => r.reason).slice(0, 4), JSON.stringify({ direct: true, opportunity: opportunityId }),
+    ]);
+  } else {
+    await c.query(
+      `INSERT INTO match_candidates(match_request_id, opportunity_id, revision, eligibility, score, reasons, rank) VALUES ($1,$2,$3,'eligible',1,$4,1)`,
+      [id, o!.id, o!.revision, JSON.stringify({ eligibility: e.results.map((r) => r.reason) })],
+    );
+    await c.query(
+      "UPDATE match_requests SET state = 'candidate_ready', selected_opportunity_id = $2, selected_revision = $3, explanation = $4 WHERE id = $1",
+      [id, o!.id, o!.revision, JSON.stringify({ reasons: ["You picked this one from the bank."], eligibility: e.results.filter((r) => r.outcome === "eligible").map((r) => r.reason), requirements: o!.requirements.slice(0, 5), direct: true })],
+    );
+  }
+  await audit(c, { kind: "user", id: userId }, "match.requested", "match_request", id, { changes: { direct: true } });
+  return id;
+}
