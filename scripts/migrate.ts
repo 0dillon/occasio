@@ -1,12 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import pg from "pg";
+import { getPool, closePools } from "../src/db/pool";
 
 // Applies migrations/*.sql in order as the owner role. Each file runs in one
 // transaction and is recorded so it never runs twice.
 export async function migrate(url: string, log = console.log) {
-  const client = new pg.Client({ connectionString: url });
-  await client.connect();
+  const client = await getPool(url).connect();
   try {
     await client.query(`CREATE TABLE IF NOT EXISTS public.schema_migrations (
       name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
@@ -28,7 +27,8 @@ export async function migrate(url: string, log = console.log) {
       }
     }
   } finally {
-    await client.end();
+    client.release();
+    await closePools();
   }
 }
 
