@@ -29,12 +29,12 @@ export function normalizeUrl(raw: string): string {
   u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
   u.protocol = "https:";
   u.port = "";
+  // "/apply/" and "/apply" are treated as the same page for duplicate checks.
+  u.pathname = u.pathname.replace(/\/+$/, "") || "/";
   const kept = [...u.searchParams.entries()].filter(([k]) => !TRACKING.test(k)).sort(([a], [b]) => a.localeCompare(b));
   u.search = "";
   for (const [k, v] of kept) u.searchParams.append(k, v);
-  let s = u.toString();
-  if (u.pathname !== "/" && s.endsWith("/") && !u.search) s = s.slice(0, -1);
-  return s.replace(/\/$/, "");
+  return u.toString().replace(/\/$/, "");
 }
 
 export const hostOf = (raw: string) => {
