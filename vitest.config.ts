@@ -3,13 +3,14 @@ import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
 // Integration tests run against a separate database (occasio_test) using the
-// same three roles as the app. The URLs are derived from .env.local so no
+// same three roles as the app. The URLs are derived from .env.local (or
+// TEST_ENV_FILE, e.g. .env.neon to run the suite on Neon) so no
 // credentials are written into the repository.
 function testEnv(): Record<string, string> {
   const out: Record<string, string> = {};
   let raw = "";
   try {
-    raw = readFileSync(".env.local", "utf8");
+    raw = readFileSync(process.env.TEST_ENV_FILE ?? ".env.local", "utf8");
   } catch {
     return out;
   }
