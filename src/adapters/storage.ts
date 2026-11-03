@@ -18,7 +18,7 @@ function checkKey(key: string) {
   return key;
 }
 function pathFor(key: string) {
-  return join(resolve(process.env.STORAGE_DIR ?? "./storage"), checkKey(key));
+  return join(/* turbopackIgnore: true */ resolve(/* turbopackIgnore: true */ process.env.STORAGE_DIR ?? "./storage"), checkKey(key));
 }
 
 let client: S3Client | undefined;
@@ -54,7 +54,7 @@ export async function getObject(key: string): Promise<Buffer> {
     const r = await client.send(new GetObjectCommand({ Bucket: bucket, Key: checkKey(key) }));
     return Buffer.from(await r.Body!.transformToByteArray());
   }
-  return readFile(pathFor(key));
+  return readFile(/* turbopackIgnore: true */ pathFor(key));
 }
 
 export async function deleteObject(key: string) {
