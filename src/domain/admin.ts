@@ -141,7 +141,7 @@ export async function correctOpportunity(c: Db, actor: SessionUser, id: string, 
   const blockers = redemptionBlockers({
     availability: after.availability, sourceCheckedAt: after.last_successful_check_at, eligibilityComplete: after.eligibility_complete,
     organizerTrust: org?.trust ?? "unassessed",
-    deadline: { sourceText: dl?.source_text ?? "", date: dl?.source_local_date ? new Date(dl.source_local_date).toISOString().slice(0, 10) : null, time: dl?.source_local_time?.slice(0, 5) ?? null, timezone: dl?.timezone ?? null, rolling: dl?.precision === "rolling" },
+    deadline: { sourceText: dl?.source_text ?? "", date: dl?.source_local_date ?? null, time: dl?.source_local_time?.slice(0, 5) ?? null, timezone: dl?.timezone ?? null, rolling: dl?.precision === "rolling" },
   } as Draft);
   add("redemption_blockers", blockers);
   sets.push("revision = revision + 1");
