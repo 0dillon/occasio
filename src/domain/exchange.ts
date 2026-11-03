@@ -80,7 +80,7 @@ type PublishResult =
  * Uniqueness on (programme, edition) resolves races: if another submission or
  * the crawler created the same edition first, this returns "duplicate".
  */
-async function createEdition(c: Db, draft: Draft, origin: "user_submission" | "discovery" | "operator" | "fixture", actor: Actor, isFixture = false) {
+async function createEdition(c: Db, draft: Draft, origin: "user_submission" | "discovery" | "operator" | "fixture", actor: Actor, isFixture = false): Promise<{ id: string } | { duplicateOf: string }> {
   const org = await one<{ id: string; trust: string }>(
     c,
     `INSERT INTO organizers(name, normalized_name, domains, trust) VALUES ($1,$2,$3,$4)
