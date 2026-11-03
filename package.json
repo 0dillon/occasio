@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p 3000",
+    "start": "next start",
     "worker": "tsx --env-file=.env.local worker/index.ts",
     "fetcher": "tsx --env-file=.env.local fetcher/server.ts",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
@@ -19,7 +19,9 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:e2e": "node tests/e2e/run.mjs",
-    "db:setup-roles": "tsx --env-file=.env.local scripts/setup-roles.ts"
+    "db:setup-roles": "tsx --env-file=.env.local scripts/setup-roles.ts",
+    "start:jobs": "node scripts/run-jobs.mjs",
+    "db:migrate:prod": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",
@@ -35,6 +37,7 @@
     "react-dom": "19.2.9",
     "server-only": "0.0.1",
     "sharp": "0.35.5",
+    "tsx": "4.20.6",
     "ws": "8.22.1",
     "zod": "4.6.7"
   },
@@ -44,7 +47,6 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@types/ws": "8.18.1",
-    "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vitest": "5.1.0"
   }
