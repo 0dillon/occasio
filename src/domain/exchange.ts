@@ -241,8 +241,8 @@ export async function rejectSubmission(c: Db, submissionId: string, reason: stri
   if (!sub) fail("not_found", "Submission not found.");
   if (["accepted", "duplicate", "rejected", "withdrawn"].includes(sub.status)) fail("conflict", `Submission is already ${sub.status}.`);
   await c.query(
-    `UPDATE submissions SET status = $2, status_reason = $3, missing_information = $4,
-            resolved_at = CASE WHEN $2 = 'rejected' THEN now() ELSE NULL END WHERE id = $1`,
+    `UPDATE submissions SET status = $2::submission_status, status_reason = $3, missing_information = $4,
+            resolved_at = CASE WHEN $2::submission_status = 'rejected' THEN now() ELSE NULL END WHERE id = $1`,
     [submissionId, status, reason, missing],
   );
   // Rejected posters are purged after the retention window.
