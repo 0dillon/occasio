@@ -7,3 +7,4 @@ test-results/
 *.tsbuildinfo
 next-env.d.ts
 storage-test/
+.env.neon
