@@ -162,10 +162,11 @@ export async function dispatchDueReminders(now = new Date(), batch = 50) {
       if (r.cutoff_at && new Date(r.cutoff_at).getTime() <= now.getTime()) return suppress("Deadline passed before sending");
       const d = r.deadline_id ? await one(c, "SELECT * FROM opportunity_deadlines WHERE id = $1", [r.deadline_id]) : null;
       if (r.deadline_id && (!d || !d.is_current || d.revision !== r.deadline_revision)) return suppress("Deadline changed; replaced by a new schedule");
-      // Coalesce a backlog: if a LATER reminder for the same app+channel is also overdue, skip this one.
+      // Coalesce a backlog: if a LATER reminder for the same app+channel is also
+      // overdue (pending or already sent in this run), this one is stale.
       const later = await one(
         c,
-        `SELECT 1 FROM reminders WHERE application_id = $1 AND channel = $2 AND id <> $3 AND state IN ('scheduled','claimed')
+        `SELECT 1 FROM reminders WHERE application_id = $1 AND channel = $2 AND id <> $3 AND state IN ('scheduled','claimed','sent')
             AND due_at <= $4 AND due_at > $5`,
         [r.application_id, r.channel, id, now, r.due_at],
       );
