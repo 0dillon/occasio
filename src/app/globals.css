@@ -184,7 +184,7 @@ main.app-main { padding-bottom: 104px; }
   display: flex; flex-direction: column; gap: var(--space-4);
 }
 .tile.flat { background: transparent; }
-.tile:has(> .tile-art) { overflow: hidden; }
+.tile:has(.tile-art) { overflow: hidden; }
 .tile.subtle { background: var(--color-subtle); border-color: transparent; }
 .tile.brand { background: var(--color-brand); color: var(--color-on-brand); border-color: transparent; overflow: hidden; }
 .tile.brand .muted, .tile.brand .meta, .tile.brand small { color: #3b4320; }
