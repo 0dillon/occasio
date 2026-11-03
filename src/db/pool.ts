@@ -2,6 +2,8 @@ import pg from "pg";
 
 // Return timestamps as Date and bigint counts as number where safe.
 pg.types.setTypeParser(20, (v) => Number(v));
+// Calendar dates stay as YYYY-MM-DD strings: a JS Date would shift them by the server timezone.
+pg.types.setTypeParser(1082, (v) => v);
 
 const pools = new Map<string, pg.Pool>();
 
