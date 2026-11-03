@@ -40,7 +40,7 @@ Neon environment values live only in git-ignored `.env.local` / `.env.neon` in t
 | --- | --- | --- |
 | Typecheck | `npx tsc --noEmit` | passes, 0 errors |
 | Production build | `npm run build` | passes, 0 warnings, 44 routes |
-| Unit + integration (local Postgres 16) | `npx vitest run` | 6 files, 70 tests passed |
+| Unit + integration (local Postgres 16) | `npx vitest run` | 7 files, 72 tests passed |
 | Same suite on Neon (Postgres 18) | `TEST_ENV_FILE=.env.neon npx vitest run` | passed (run before the admin UI was added; covers credits, authorization, reminders, storage) |
 | End-to-end in Chromium against Neon | `node --env-file=<neon test env> tests/e2e/run.mjs` with app, worker and fetcher running | **19/19 passed** |
 
@@ -48,7 +48,7 @@ The e2e run (`tests/e2e/run.mjs`) covers: landing and brand logo; security heade
 
 The e2e refuses to run against a database whose name doesn't contain `test` or `dev`, because it creates accounts and resets rate limits. On Neon it ran against the `occasio_test` database, not `neondb`.
 
-Bugs found and fixed by these runs: `forbidden()` returned 500 until `experimental.authInterrupts` was enabled; decorative tile art caused 8px of horizontal scroll on mobile; non-country eligibility codes were being uppercased by the review form, which would never match profile values.
+Bugs found and fixed by these runs: the restricted fetcher's pinned DNS lookup broke on Node 22 (every source check failed with "Invalid IP address" and fell back to human review); sending a submission back or rejecting it failed with a SQL parameter type error (now covered by `tests/integration/review-decisions.test.ts`); `forbidden()` returned 500 until `experimental.authInterrupts` was enabled; decorative tile art caused 8px of horizontal scroll on mobile; non-country eligibility codes were being uppercased by the review form, which would never match profile values.
 
 ## Blocked or not done
 
