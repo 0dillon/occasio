@@ -12,6 +12,11 @@ export const passwordSchema = z
   .min(10, "Use at least 10 characters.")
   .max(200, "Use at most 200 characters.");
 
+/** Parses one form value so a failure carries its field name and the form can highlight it. */
+function parseField<T extends z.ZodType>(name: string, schema: T, value: unknown): z.infer<T> {
+  return z.object({ [name]: schema }).parse({ [name]: value })[name] as z.infer<T>;
+}
+
 export type SessionUser = {
   id: string;
   email: string;
@@ -58,8 +63,8 @@ async function createAuthToken(c: Db, userId: string, kind: "verify_email" | "re
  * the caller always shows the same "check your email" response.
  */
 export async function register(input: { email: string; password: string; ip: string; origin: string }) {
-  const email = emailSchema.parse(input.email);
-  const password = passwordSchema.parse(input.password);
+  const email = parseField("email", emailSchema, input.email);
+  const password = parseField("password", passwordSchema, input.password);
   const hash = await hashPassword(password);
   return withAnon(async (c) => {
     await rateLimit(c, `register:ip:${input.ip}`, 10, 3600);
@@ -211,7 +216,7 @@ export async function requestPasswordReset(email: string, ip: string, origin: st
 }
 
 export async function resetPassword(token: string, password: string) {
-  const pw = passwordSchema.parse(password);
+  const pw = parseField("password", passwordSchema, password);
   const hash = await hashPassword(pw);
   await withAnon(async (c) => {
     const row = await one<{ user_id: string }>(
