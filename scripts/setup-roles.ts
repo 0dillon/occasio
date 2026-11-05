@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { closePools, getPool } from "../src/db/pool";
 
 /**
@@ -25,7 +26,7 @@ export async function setupRoles(ownerUrl: string, passwords: { app: string; wor
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const url = process.env.DATABASE_URL_OWNER;
   const app = process.env.OCCASIO_APP_DB_PASSWORD;
   const worker = process.env.OCCASIO_WORKER_DB_PASSWORD;

@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getPool, closePools } from "../src/db/pool";
@@ -32,7 +33,7 @@ export async function migrate(url: string, log = console.log) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const url = process.env.DATABASE_URL_OWNER;
   if (!url) throw new Error("DATABASE_URL_OWNER is required");
   migrate(url).then(() => console.log("migrations up to date"));

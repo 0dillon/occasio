@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { closePools } from "@/db/pool";
 import { one, withWorker } from "@/db/tx";
 import { crawlDueSources, recheckDue, triageCandidates } from "@/domain/discovery";
@@ -68,4 +69,4 @@ async function main() {
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => { stopping = true; });
-if (process.argv[1]?.endsWith("worker/index.ts")) void main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void main();

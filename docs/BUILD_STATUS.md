@@ -43,12 +43,16 @@ Neon environment values live only in git-ignored `.env.local` / `.env.neon` in t
 | Unit + integration (local Postgres 16) | `npx vitest run` | 6 files, 70 tests passed |
 | Same suite on Neon (Postgres 18) | `TEST_ENV_FILE=.env.neon npx vitest run` | passed (run before the admin UI was added; covers credits, authorization, reminders, storage) |
 | End-to-end in Chromium against Neon | `node --env-file=<neon test env> tests/e2e/run.mjs` with app, worker and fetcher running | **19/19 passed** |
+| Unit + integration on Windows 11 (local Postgres 16), 2026-11-05 | `npx vitest run` | 6 files, 70 tests passed |
+| End-to-end on Windows 11 (local Postgres 16), 2026-11-05 | `node --env-file=.env.local tests/e2e/run.mjs` with app, worker and fetcher running | **19/19 passed** (7/19 before the Windows fixes below) |
 
 The e2e run (`tests/e2e/run.mjs`) covers: landing and brand logo; security headers; sign-up, email confirmation from the dev mail sink, onboarding; labelled sample data in the bank; sharing a link with a poster (stored in Neon object storage); the worker routing it to human review; poster visible to its owner only; a second member getting 404/403 on another member's submission, poster and the admin area; an admin accepting the submission and the contributor earning exactly one credit; all 12 admin pages returning 200; a never-checked fixture offering no unlock and debiting nothing; a starter-match unlock with no ledger entry; saving an application, adding a task, 6 deadline reminders scheduled, status not marked submitted; deadlines page; data export containing only the requester's data; mobile (iPhone 13) pages with no horizontal scroll.
 
 The e2e refuses to run against a database whose name doesn't contain `test` or `dev`, because it creates accounts and resets rate limits. On Neon it ran against the `occasio_test` database, not `neondb`.
 
 Bugs found and fixed by these runs: `forbidden()` returned 500 until `experimental.authInterrupts` was enabled; decorative tile art caused 8px of horizontal scroll on mobile; non-country eligibility codes were being uppercased by the review form, which would never match profile values.
+
+Found on Windows: `worker/index.ts`, `scripts/migrate.ts` and `scripts/setup-roles.ts` compared `process.argv[1]` against a POSIX path, so on Windows they exited 0 without doing anything (no worker, no migrations, no roles). They now compare with `pathToFileURL`. The e2e's `npx` call needed `shell: true` on Windows. Sign-up and password reset showed only "Check the highlighted fields." with no field message; email/password errors now carry their field name.
 
 ## Blocked or not done
 
