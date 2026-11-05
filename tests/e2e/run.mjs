@@ -167,7 +167,7 @@ const ctxB = await browser.newContext({ viewport: { width: 1440, height: 900 } }
 const pageB = await ctxB.newPage();
 await step("admin B accepts A's submission; A earns exactly one credit", async () => {
   await signUp(pageB, B);
-  execFileSync("npx", ["tsx", "scripts/make-admin.ts", B.email, "admin"], { env: process.env, stdio: "pipe" });
+  execFileSync("npx", ["tsx", "scripts/make-admin.ts", B.email, "admin"], { env: process.env, stdio: "pipe", shell: process.platform === "win32" });
   await signIn(pageB, B);
   const st = (await q("SELECT status FROM occasio.submissions WHERE id = $1", [submissionId]))[0].status;
   must(["review_required", "needs_information", "failed"].includes(st), `not reviewable: ${st}`);
