@@ -6,7 +6,7 @@
  * Change a PROPOSED value here (and note it in docs/DECISIONS.md); do not
  * scatter these numbers through the codebase.
  */
-export const RULES_VERSION = "2026-11-03.1";
+export const RULES_VERSION = "2026-11-06.1";
 
 export const productRules = {
   confirmed: {
@@ -39,8 +39,8 @@ export const productRules = {
     redemptionFreshnessHours: 72,
     /** Date-only or unknown-time deadlines inside this window are excluded from credit matching. */
     ambiguousDeadlineExclusionHours: 72,
-    /** New organizer domains always go to human review at launch. */
-    reviewNewOrganizers: true,
+    /** New organizer domains always went to human review at launch; D11 lets clean AI-checked ones auto-publish. */
+    reviewNewOrganizers: false,
     /** Default reminder offsets before a known deadline, in minutes. */
     reminderOffsetsMinutes: [7 * 1440, 3 * 1440, 1440],
     /** Retries for transient notification failures (approx. 30s, 2m, 10m, 30m). */

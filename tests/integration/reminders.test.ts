@@ -75,13 +75,16 @@ describe("reminder planning", () => {
   });
 
   it("after an outage, overdue reminders coalesce into one per channel", async () => {
-    const { app } = await tracked();
-    const r = await dispatchDueReminders(new Date(Date.now() + 19.5 * DAY));
+    const { opp, app } = await tracked();
+    // Half a day before the real deadline, so all three offsets are overdue whatever time the test runs.
+    const [dl] = await ownerQuery("SELECT utc_instant FROM opportunity_deadlines WHERE opportunity_id = $1", [opp]);
+    const at = new Date(new Date(dl.utc_instant).getTime() - 0.5 * DAY);
+    const r = await dispatchDueReminders(at);
     expect(r.sent).toBe(2); // one in-app, one email
     const sentRows = (await reminders(app)).filter((x) => x.state === "sent");
     expect(sentRows.every((x) => x.offset_minutes === 1440)).toBe(true);
     // A second dispatcher run sends nothing more.
-    expect((await dispatchDueReminders(new Date(Date.now() + 19.5 * DAY))).sent).toBe(0);
+    expect((await dispatchDueReminders(at)).sent).toBe(0);
   });
 
   it("quiet hours move reminders earlier, never later", async () => {
