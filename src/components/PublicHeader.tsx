@@ -5,7 +5,10 @@ export function PublicHeader({ signedIn }: { signedIn?: boolean }) {
   return (
     <header className="topbar">
       <div className="page topbar-inner">
-        <Link href="/" className="brand-link" aria-label="OCCASIO home"><Logo variant="paper" /></Link>
+        <Link href="/" className="brand-link" aria-label="OCCASIO home">
+          <Logo variant="paper" className="brand-full" />
+          <Logo variant="paper" kind="symbol" height={26} className="brand-compact" />
+        </Link>
         <div className="topbar-actions">
           {signedIn ? (
             <Link href="/home" className="btn primary small">Open OCCASIO</Link>
