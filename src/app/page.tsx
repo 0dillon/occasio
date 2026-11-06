@@ -7,14 +7,14 @@ import { searchBank, type OpportunityPreview } from "@/domain/catalog";
 import { currentUser } from "@/server/session";
 
 const STEPS = [
-  { n: "01", verb: "Find", title: "Tell us what you're after.", body: "A scholarship for a master's, a remote hackathon, a fellowship for founders. We match you with listings that are open and that you qualify for. Your first match is free." },
-  { n: "02", verb: "Share", title: "Pass on what you come across.", body: "Seen a poster in a group chat? Paste the link. We check the organizer's own page, and when it's added you earn a credit for your next match." },
-  { n: "03", verb: "Apply", title: "Get it in before the deadline.", body: "A checklist from the official requirements, and reminders a week, three days and a day before the deadline, in your timezone." },
+  { n: "01", verb: "Find", title: "Browse what's open.", body: "Scholarships, fellowships, hackathons and jobs in one place. Every listing is open, checked on the organizer's own page, and shows the real deadline in your timezone." },
+  { n: "02", verb: "Track", title: "Manage every application.", body: "Track the ones you're going for. Each gets a checklist from the official requirements, and reminders a week, three days and a day before the deadline." },
+  { n: "03", verb: "Share", title: "Pass on what you come across.", body: "Seen a poster in a group chat? Paste the link. We check the organizer's page, and when it's added to the board you earn a credit." },
 ];
 
 const FAQ = [
-  { q: "Is it free?", a: "Yes. Creating an account and browsing are free, your first match is free, and every new opportunity you share that gets added earns you a credit for another. There's nothing to buy." },
-  { q: "What's a credit?", a: "A credit unlocks one matched opportunity: the full requirements, the application link and a checklist. If we can't find a fit for you, you keep your credit." },
+  { q: "Is it free?", a: "Yes. The board and the application tracker are free. You only need an account to see the full listings and keep track of your applications." },
+  { q: "What are credits for?", a: "You earn a credit each time an opportunity you share is added to the board as new. Credits will unlock extra perks; they can't be bought or cashed out." },
   { q: "How do you know a listing is real?", a: "We open the organizer's own page, read the deadline and requirements there, and check it again while it's open. Anything that doesn't add up gets a closer look before it goes in." },
   { q: "Who is it for?", a: "Anyone hunting for their next step: students, graduates, early-career builders and founders. Opportunities can be from anywhere, as long as you're eligible." },
 ];
@@ -49,7 +49,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
               <Link href={find} className="btn ink lp-btn">Find opportunities <Icon name="arrow" size={18} /></Link>
               <Link href={share} className="btn lp-btn lp-btn-outline"><Icon name="plus" size={18} /> Share one you found</Link>
             </div>
-            <p className="lp-fine">Free to join. Your first match is on us.</p>
+            <p className="lp-fine">Free to join. Free to use.</p>
           </div>
           {/* Intentional crop of the real symbol artwork as the hero graphic. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -90,7 +90,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
               <li><Icon name="check" size={18} /> The real deadline, converted to your time</li>
               <li><Icon name="check" size={18} /> Whether it's still open, and when we last checked</li>
               <li><Icon name="check" size={18} /> What it costs and who can apply</li>
-              <li><Icon name="check" size={18} /> A plan to get your application done</li>
+              <li><Icon name="check" size={18} /> A checklist and reminders to get it done</li>
             </ul>
             <span className="meta">Sample listing below, not a real event.</span>
           </div>

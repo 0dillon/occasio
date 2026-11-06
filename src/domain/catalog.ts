@@ -137,14 +137,19 @@ export async function getPreview(c: Db, id: string, userId: string | null, staff
 }
 
 /**
- * Full detail: the server checks entitlement (or staff role) before returning
- * links. Hidden records stay visible to people who already unlocked them, so
- * corrections and withdrawals reach them.
+ * Full detail for any signed-in member (D12: the board is free). Published and
+ * archived records are visible to everyone signed in; a withdrawn ("hidden")
+ * record stays visible only to people who saved it before, and to staff, so
+ * corrections and withdrawals still reach them.
  */
 export async function getDetail(c: Db, id: string, userId: string | null, staff = false): Promise<OpportunityDetail | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  if (!userId && !staff) return null;
+  const pub = await one<{ publication: string }>(c, "SELECT publication FROM opportunities WHERE id = $1", [id]);
+  if (!pub) return null;
   const entitled = userId ? (await unlockedSet(c, userId, [id])).has(id) : false;
-  if (!entitled && !staff) return null;
+  const visible = staff || entitled || pub.publication === "published" || pub.publication === "archived";
+  if (!visible) return null;
   const r = await one(
     c,
     `SELECT ${PREVIEW_COLUMNS}, o.description, o.official_url, o.application_url, o.fee_text,

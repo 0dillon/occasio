@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {!user.emailVerified ? (
         <div className="notice-bar" role="region" aria-label="Email confirmation">
           <div className="page">
-            <span>Confirm your email to share opportunities and unlock matches.</span>
+            <span>Confirm your email to share opportunities and earn credits.</span>
             <ActionForm action={resendVerificationAction} className="row"><Submit className="btn small" pending="Sending…">Resend link</Submit></ActionForm>
           </div>
         </div>

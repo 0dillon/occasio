@@ -6,7 +6,7 @@
  * Change a PROPOSED value here (and note it in docs/DECISIONS.md); do not
  * scatter these numbers through the codebase.
  */
-export const RULES_VERSION = "2026-11-03.1";
+export const RULES_VERSION = "2026-11-06.1";
 
 export const productRules = {
   confirmed: {
@@ -52,6 +52,13 @@ export const productRules = {
     /** Rejected poster retention. */
     rejectedAssetRetentionDays: 30,
     acceptedAssetReviewDays: 90,
+    /**
+     * Contributor perks (D13). Reached by credits EARNED from shared
+     * opportunities (lifetime), not spent. Thresholds are proposals.
+     */
+    perkThresholds: { contributorBadge: 1, personalAlerts: 3 },
+    /** Saved alert searches per member. */
+    maxAlertSearches: 5,
     sessionDays: 30,
     recentAuthMinutes: 15,
   },
