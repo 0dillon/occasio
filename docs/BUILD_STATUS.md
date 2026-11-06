@@ -11,6 +11,8 @@ Last updated: 2026-11-03. Every claim below links to a command that was run, wit
 | Onboarding, profile, notification settings, export, account deletion | Built | `src/app/(app)/onboarding`, `src/app/(app)/settings/*`, `src/app/api/v1/me/export` |
 | Link + poster submission (private storage, metadata stripped) | Built | `src/app/(app)/contribute`, `src/adapters/storage.ts` |
 | Verification pipeline (restricted fetcher, rule-based extraction, human review) | Built | `fetcher/`, `src/domain/verification.ts`, `src/app/admin/reviews` |
+| AI extraction (Claude, structured output, deadline quote must appear word for word on the page) | Code built and unit-tested with a stand-in extractor; **not yet run against the live API** (no key configured) | `src/adapters/claude-extractor.ts` |
+| Auto-publish of clean submissions (D11), behind `auto_publish_enabled` | Built; gate and worker path covered by `tests/integration/auto-publish.test.ts` | `src/domain/verification.ts` (`autoPublishBlockers`) |
 | Opportunity bank, search, detail with source and freshness | Built | `src/app/(app)/discover`, `src/app/(app)/opportunities/[id]` |
 | Matching with transactional credits, starter match, refunds | Built | `src/domain/matching.ts`, `src/domain/exchange.ts`, `src/app/(app)/matches` |
 | Application tracker, tasks, status history | Built | `src/domain/applications.ts`, `src/app/(app)/applications` |
@@ -44,6 +46,7 @@ Neon environment values live only in git-ignored `.env.local` / `.env.neon` in t
 | Same suite on Neon (Postgres 18) | `TEST_ENV_FILE=.env.neon npx vitest run` | passed (run before the admin UI was added; covers credits, authorization, reminders, storage) |
 | End-to-end in Chromium against Neon | `node --env-file=<neon test env> tests/e2e/run.mjs` with app, worker and fetcher running | **19/19 passed** |
 | Unit + integration on Windows 11 (local Postgres 16), 2026-11-05 | `npx vitest run` | 6 files, 70 tests passed |
+| Unit + integration incl. auto-publish (local Postgres 16), 2026-11-06 | `npx vitest run` | 7 files, 77 tests passed. The reminders "outage" test depended on the time of day it ran; it now dispatches relative to the stored deadline. |
 | End-to-end on Windows 11 (local Postgres 16), 2026-11-05 | `node --env-file=.env.local tests/e2e/run.mjs` with app, worker and fetcher running | **19/19 passed** (7/19 before the Windows fixes below) |
 
 The e2e run (`tests/e2e/run.mjs`) covers: landing and brand logo; security headers; sign-up, email confirmation from the dev mail sink, onboarding; labelled sample data in the bank; sharing a link with a poster (stored in Neon object storage); the worker routing it to human review; poster visible to its owner only; a second member getting 404/403 on another member's submission, poster and the admin area; an admin accepting the submission and the contributor earning exactly one credit; all 12 admin pages returning 200; a never-checked fixture offering no unlock and debiting nothing; a starter-match unlock with no ledger entry; saving an application, adding a task, 6 deadline reminders scheduled, status not marked submitted; deadlines page; data export containing only the requester's data; mobile (iPhone 13) pages with no horizontal scroll.

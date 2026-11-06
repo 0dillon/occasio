@@ -190,8 +190,14 @@ export const ruleBasedExtractor: Extractor = {
   },
 };
 
-export function getExtractor(): Extractor {
-  // A model-backed extractor plugs in here behind the same contract once a
-  // provider is configured and evaluated (see docs/BUILD_STATUS.md).
+/**
+ * The model-backed extractor is used only when a key is configured AND the
+ * ai_extraction_enabled flag is on; otherwise extraction stays rule-based.
+ */
+export async function getExtractor(opts: { aiEnabled: boolean } = { aiEnabled: false }): Promise<Extractor> {
+  if (opts.aiEnabled && process.env.ANTHROPIC_API_KEY) {
+    const { claudeExtractor } = await import("./claude-extractor");
+    return claudeExtractor();
+  }
   return ruleBasedExtractor;
 }

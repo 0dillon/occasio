@@ -10,7 +10,7 @@ const ABOUT: Record<string, string> = {
   discovery_enabled: "Stop switch for crawling approved sources.",
   ai_extraction_enabled: "Use a model for extraction when a provider key is configured. Off means rule-based extraction plus human review.",
   email_enabled: "Stop switch for all outgoing email.",
-  auto_publish_enabled: "Publish high-confidence submissions without a person. Off by default (founder decision pending).",
+  auto_publish_enabled: "Publish submissions with no person when the AI extractor read the official page and every check is clean (D11). Anything else stays in the review queue. Needs ANTHROPIC_API_KEY and AI extraction on.",
 };
 
 export default async function Flags() {

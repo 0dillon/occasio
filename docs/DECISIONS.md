@@ -31,3 +31,8 @@ Until a person resolves it, nobody spends a credit on a listing someone flagged 
 
 ## D10. Live notifications through Neon Realtime, with a static fallback
 Realtime does not apply row security, so the live query filters by the session's user id, sealed server-side and renewed through an authenticated route that refuses if the signed-in user changed. If sealing or the connection fails, the bell shows the server-rendered count.
+
+## D11. Auto-publish clean submissions (founder decision, 2026-11-06)
+Founder chose to automate review for clean cases. Supersedes the "every acceptance goes through a person" part of D5 and the master plan's "200-item benchmark before broad auto-publication"; no benchmark exists yet.
+When `auto_publish_enabled` is on, the worker publishes a member submission with no person only if: the AI extractor (Claude, `ANTHROPIC_API_KEY` + `ai_extraction_enabled`) read the official page; the page loaded; it isn't a duplicate; the deadline was quoted word for word from the page with a date and timezone and is more than 72 hours away; title, organizer and category were found; and there are no conflicts, risk signals or missing fields. A new organizer domain or an unstated fee no longer forces review. Everything else stays in the review queue with the reasons recorded as an "Auto-publish" check. Publishing goes through `acceptSubmission`, so the one-credit award, notifications and audit are unchanged.
+Auto-published records have eligibility unconfirmed, so they are browsable but excluded from credit redemption until a person confirms eligibility. If the AI call fails, extraction falls back to rule-based and the submission goes to a person. Turning the flag off restores full human review immediately.
