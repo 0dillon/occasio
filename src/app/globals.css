@@ -1,5 +1,5 @@
 /*
- * OCCASIO design tokens (agent.md Part I §4). Charcoal canvas, lime brand
+ * OCCASIO design tokens (agent.md Part I Â§4). Charcoal canvas, lime brand
  * areas with Ink text, Paper reading text. No gradients, no blue/purple.
  */
 :root {
@@ -319,6 +319,102 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; line-heig
 /* ---------------------------------------------------------------- landing */
 .hero-title { font-size: clamp(40px, 6.4vw, 72px); line-height: 1.02; letter-spacing: -0.035em; font-weight: 800; }
 .landing-hero { padding: var(--space-8) 0 var(--space-6); }
+.footer .stack-sm { align-items: flex-start; }
+.topbar-actions .btn { white-space: nowrap; }
+.brand-compact { display: none; }
+@media (max-width: 479px) { .brand-full { display: none; } .brand-compact { display: block; } }
+
+.lp { display: grid; gap: clamp(56px, 8vw, 104px); padding-top: var(--space-6); }
+.lp-section-title { font-size: clamp(28px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -0.025em; font-weight: 800; max-width: 22ch; }
+.lp-muted { color: var(--color-text-secondary); font-size: 17px; line-height: 27px; max-width: 46ch; }
+.lp-btn { min-height: 52px; padding: 12px 22px; font-size: 16px; }
+
+/* Hero: the green brand moment. Ink on lime, with a deliberate crop of the real symbol. */
+.lp-hero {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: var(--color-brand); color: var(--color-on-brand);
+  border-radius: 28px; padding: clamp(28px, 5vw, 72px);
+  min-height: clamp(460px, 62vh, 640px); display: flex; align-items: flex-end;
+}
+.lp-hero-copy { position: relative; z-index: 1; display: grid; gap: var(--space-6); max-width: 640px; }
+.lp-kicker { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
+.lp-title { font-size: clamp(56px, 10vw, 128px); line-height: 0.92; letter-spacing: -0.045em; font-weight: 800; margin: 0; }
+.lp-lede { font-size: clamp(17px, 1.6vw, 21px); line-height: 1.5; max-width: 34ch; margin: 0; font-weight: 500; }
+.lp-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.lp-btn-outline { --b-bg: transparent; --b-fg: var(--color-on-brand); --b-bd: var(--color-on-brand); }
+.lp-btn-outline:hover { --b-bg: color-mix(in srgb, var(--color-on-brand) 8%, transparent); }
+/* Phone: the mark peeks in above the copy, which starts lower to make room. */
+.lp-hero { padding-top: 168px; }
+.lp-hero-mark { position: absolute; z-index: 0; width: 78%; height: auto; right: -26%; top: -36px; pointer-events: none; }
+@media (min-width: 900px) {
+  .lp-hero { padding-top: clamp(28px, 5vw, 72px); }
+  .lp-hero-mark { width: 62%; right: -16%; top: 8%; }
+  .lp-hero-copy { max-width: 52%; }
+}
+
+/* Steps: one reading line, big numerals, no boxes. */
+.lp-steps { display: grid; gap: var(--space-8); }
+.lp-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); }
+.lp-step { display: grid; gap: 8px; padding-top: var(--space-6); border-top: 1px solid var(--color-line); }
+.lp-step-n { font-size: 56px; line-height: 1; font-weight: 800; letter-spacing: -0.04em; color: var(--color-brand); }
+.lp-step-verb { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-text-secondary); }
+.lp-step h3 { font-size: 24px; line-height: 32px; margin: 0; }
+.lp-step p { color: var(--color-text-secondary); margin: 0; max-width: 38ch; }
+@media (min-width: 900px) { .lp-step-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-8); } }
+
+/* Showcase: copy + a composed product sample. */
+.lp-showcase { display: grid; gap: var(--space-8); align-items: center; }
+.lp-showcase-copy { display: grid; gap: var(--space-4); justify-items: start; }
+.lp-mock { position: relative; background: var(--color-panel); border-radius: 28px; padding: clamp(20px, 4vw, 48px); display: grid; gap: var(--space-4); }
+.lp-card { background: var(--color-bg); border: 1px solid var(--color-line); border-radius: 20px; padding: 24px; display: grid; gap: 10px; box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.6); }
+.lp-card-title { font-size: 24px; line-height: 30px; margin: 4px 0 0; letter-spacing: -0.01em; }
+.lp-deadline { display: grid; gap: 2px; background: var(--color-brand); color: var(--color-on-brand); border-radius: 14px; padding: 14px 16px; margin-top: 6px; }
+.lp-deadline .meta { color: var(--color-on-brand); opacity: 0.8; }
+.lp-deadline-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.lp-deadline-when { font-size: clamp(19px, 1.7vw, 24px); line-height: 30px; white-space: nowrap; font-weight: 800; letter-spacing: -0.01em; }
+.lp-checks { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--color-text-secondary); }
+.lp-checks li { display: flex; gap: 10px; align-items: center; }
+.lp-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--color-brand); flex: none; }
+.lp-plan { background: var(--color-subtle); border-radius: 20px; padding: 20px 22px; display: grid; gap: 12px; }
+.lp-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lp-tasks li { display: flex; gap: 12px; align-items: center; }
+.lp-tasks li.done { color: var(--color-text-secondary); }
+.lp-box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--color-border); display: grid; place-items: center; flex: none; }
+.lp-tasks li.done .lp-box { background: var(--color-brand); border-color: var(--color-brand); color: var(--color-on-brand); }
+@media (min-width: 1000px) {
+  .lp-showcase { grid-template-columns: 5fr 7fr; gap: var(--space-12); }
+  .lp-mock { grid-template-columns: 7fr 5fr; align-items: start; }
+  .lp-plan { margin-top: 64px; }
+}
+
+
+.lp-fine { margin: 0; font-size: 14px; font-weight: 600; opacity: 0.75; }
+
+.lp-live { display: grid; gap: var(--space-6); }
+.lp-live-head { align-items: end; }
+.lp-link { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; color: var(--color-brand); text-decoration: none; }
+.lp-link:hover { text-decoration: underline; }
+.lp-live-grid { display: grid; gap: var(--space-4); }
+@media (min-width: 900px) { .lp-live-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); } }
+
+.lp-points { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 17px; line-height: 25px; }
+.lp-points li { display: flex; gap: 12px; align-items: flex-start; }
+.lp-points svg { color: var(--color-brand); flex: none; margin-top: 3px; }
+
+.lp-faq { display: grid; gap: var(--space-6); }
+.lp-faq-list { display: grid; border-top: 1px solid var(--color-line); }
+.lp-faq-item { border-bottom: 1px solid var(--color-line); }
+.lp-faq-item summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px 0; font-size: 20px; line-height: 28px; font-weight: 700; }
+.lp-faq-item summary::-webkit-details-marker { display: none; }
+.lp-faq-item summary:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 4px; border-radius: 6px; }
+.lp-faq-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--color-panel); display: grid; place-items: center; flex: none; transition: transform var(--t-ui, 180ms) var(--ease); }
+.lp-faq-item[open] .lp-faq-icon { transform: rotate(45deg); background: var(--color-brand); color: var(--color-on-brand); }
+.lp-faq-item p { margin: 0 0 22px; color: var(--color-text-secondary); max-width: 62ch; font-size: 17px; line-height: 27px; }
+@media (min-width: 1000px) { .lp-faq { grid-template-columns: 4fr 8fr; gap: var(--space-12); align-items: start; } }
+
+.lp-cta { background: var(--color-brand); color: var(--color-on-brand); border-radius: 28px; padding: clamp(28px, 5vw, 64px); display: grid; gap: var(--space-6); justify-items: start; }
+.lp-cta h2 { font-size: clamp(30px, 4.4vw, 56px); line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; margin: 0; }
+@media (min-width: 900px) { .lp-cta { grid-template-columns: 1fr auto; align-items: end; } }
 .auth-wrap { min-height: calc(100dvh - 64px); display: grid; place-items: center; padding: var(--space-8) var(--gutter); }
 .auth-card { width: 100%; max-width: 460px; }
 
