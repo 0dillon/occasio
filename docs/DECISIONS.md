@@ -31,3 +31,7 @@ Until a person resolves it, nobody spends a credit on a listing someone flagged 
 
 ## D10. Live notifications through Neon Realtime, with a static fallback
 Realtime does not apply row security, so the live query filters by the session's user id, sealed server-side and renewed through an authenticated route that refuses if the signed-in user changed. If sealing or the connection fails, the bell shows the server-rendered count.
+
+## D12. A free board; credits are earned by sharing (founder decision, 2026-11-06)
+Founder: OCCASIO is a board of opportunities. Signed-in members see every published listing in full (requirements, official and application links) and can track any of them as an application, at no cost. Signed-out visitors see previews only. Sharing an opportunity that is accepted as new still earns one credit; credits will pay for perks that are not yet chosen. This replaces "spend a credit to unlock a match" from the confirmed rule "exchange opportunities": nothing on the board costs a credit any more.
+Withdrawn listings stay visible only to staff and to members who tracked them before. The old match and unlock pages redirect to the board; the matching, redemption and refund code is kept but unused until the perks are decided.

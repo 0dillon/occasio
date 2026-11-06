@@ -10,10 +10,10 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   unsuccessful: "Not selected", withdrawn: "Withdrawn",
 };
 
-/** Saving needs an entitlement (the record's links are unlocked). Never costs a credit. */
+/** Any signed-in member can track a published opportunity (D12). Never costs a credit. */
 export async function saveApplication(c: Db, userId: string, opportunityId: string) {
-  const ent = await one(c, "SELECT 1 FROM entitlements WHERE user_id = $1 AND opportunity_id = $2", [userId, opportunityId]);
-  if (!ent) fail("forbidden", "Unlock this opportunity before tracking it.");
+  const opp = await one<{ publication: string }>(c, "SELECT publication FROM opportunities WHERE id = $1", [opportunityId]);
+  if (!opp || opp.publication !== "published") fail("not_found", "This opportunity isn't available to track.");
   const app = await one<{ id: string; created: boolean }>(
     c,
     `INSERT INTO applications(user_id, opportunity_id) VALUES ($1,$2)

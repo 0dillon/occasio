@@ -1,8 +1,5 @@
 import Link from "next/link";
-import { refundAction } from "@/app/actions/exchange";
 import { Bento, Empty, PageHead, Tile, TileHead } from "@/components/Bento";
-import { ActionForm, Field, Submit } from "@/components/Form";
-import { many } from "@/db/tx";
 import { walletSummary } from "@/domain/exchange";
 import { formatInZone } from "@/lib/time";
 import { asSelf, currentProfile, requireUser } from "@/server/session";
@@ -13,20 +10,15 @@ const REASON: Record<string, string> = { contribution_award: "Shared a new oppor
 export default async function Credits() {
   const user = await requireUser("/credits");
   const tz = (await currentProfile())?.timezone ?? "UTC";
-  const { w, unlocks } = await asSelf(user, async (c) => ({
-    w: await walletSummary(c, user.id),
-    unlocks: await many(c, `SELECT e.id, e.via, e.unlocked_at, o.title, r.state AS refund_state FROM entitlements e JOIN opportunities o ON o.id = e.opportunity_id
-                             LEFT JOIN refund_requests r ON r.entitlement_id = e.id WHERE e.user_id = $1 AND e.via = 'credit' ORDER BY e.unlocked_at DESC LIMIT 20`, [user.id]),
-  }));
-  const refundable = unlocks.filter((u) => !u.refund_state);
+  const w = await asSelf(user, (c) => walletSummary(c, user.id));
   return (
     <div className="page">
-      <PageHead title="Credits" intro="Credits are noncash. You earn one when an opportunity you share is accepted as new, and spend one to unlock a match. They can't be bought or cashed out." />
+      <PageHead title="Credits" intro="You earn a credit each time an opportunity you share is added to the board as new. The board itself is free for everyone. Credits can't be bought or cashed out." />
       <Bento>
         <Tile span="lg-4 md-2" tone="brand">
           <TileHead kicker="Available" />
           <div className="big-number">{w.balance}</div>
-          <span className="muted">credit{w.balance === 1 ? "" : "s"}{w.starterAvailable ? " · plus 1 free starter match" : ""}</span>
+          <span className="muted">credit{w.balance === 1 ? "" : "s"}</span>
           {w.frozen ? <span className="badge">Paused while we review your account</span> : null}
           <div className="tile-actions"><Link href="/contribute" className="btn ink">Earn one: share an opportunity</Link></div>
         </Tile>
@@ -47,31 +39,11 @@ export default async function Credits() {
                 </tbody>
               </table>
             </div>
-          ) : <Empty title="No credit activity yet">Your history is permanent: entries are never edited, only added.</Empty>}
+          ) : <Empty title="No credit activity yet">Share an opportunity you've come across. When it's added, your first credit appears here.</Empty>}
         </Tile>
         <Tile span="lg-12" tone="flat">
-          <TileHead kicker="Something wrong with an unlock?" />
-          {refundable.length ? (
-            <ActionForm action={refundAction} className="form-grid two">
-              <Field name="entitlementId" label="Which unlock" inputId="f-ent">
-                <select id="f-ent" name="entitlementId" className="select">{refundable.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}</select>
-              </Field>
-              <Field name="reason" label="What happened" inputId="f-reason">
-                <select id="f-reason" name="reason" className="select">
-                  <option value="expired_at_redemption">It was already closed when I unlocked it</option>
-                  <option value="duplicate">I'd already unlocked the same opportunity</option>
-                  <option value="clearly_ineligible">The rules clearly exclude me</option>
-                </select>
-              </Field>
-              <div className="full"><Field name="detail" label="Details" textarea maxLength={1000} /></div>
-              <div className="full"><Submit className="btn">Ask for a review</Submit></div>
-            </ActionForm>
-          ) : <p className="muted" style={{ margin: 0 }}>Credit unlocks you can ask us to review appear here.</p>}
-          {unlocks.some((u) => u.refund_state) ? (
-            <ul className="stack-sm" style={{ margin: 0, paddingLeft: 18 }}>
-              {unlocks.filter((u) => u.refund_state).map((u) => <li key={u.id}>{u.title}: review {u.refund_state}</li>)}
-            </ul>
-          ) : null}
+          <TileHead kicker="What credits are for" />
+          <p className="muted" style={{ margin: 0, maxWidth: "62ch" }}>Perks you can spend credits on are on the way. Everything you earn now is kept and will count.</p>
         </Tile>
       </Bento>
     </div>

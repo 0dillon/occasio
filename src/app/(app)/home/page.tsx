@@ -21,19 +21,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ w
   const { welcome } = await searchParams;
   const tz = profile?.timezone ?? "UTC";
   const data = await asSelf(user, async (c) => {
-    const wallet = await one(c, "SELECT balance, starter_available FROM wallets WHERE user_id = $1", [user.id]);
-    const match = await one(
-      c,
-      `SELECT m.id, m.state, m.query_text, o.title, o.id AS opportunity_id
-         FROM match_requests m LEFT JOIN opportunities o ON o.id = m.selected_opportunity_id
-        WHERE m.user_id = $1 AND m.state IN ('candidate_ready','needs_clarification') AND m.created_at > now() - interval '7 days'
-        ORDER BY m.created_at DESC LIMIT 1`,
-      [user.id],
-    );
+    const wallet = await one(c, "SELECT balance FROM wallets WHERE user_id = $1", [user.id]);
     const subs = await many(c, "SELECT id, status, claimed, created_at FROM submissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 3", [user.id]);
     const apps = await listApplications(c, user.id);
-    const recent = await searchBank(c, { q: "" } as any, user.id, 4);
-    return { wallet, match, subs, apps, recent: recent.items };
+    const recent = await searchBank(c, { q: "", open: "1" } as any, user.id, 6);
+    return { wallet, subs, apps, recent: recent.items };
   });
   const active = data.apps.filter((a: any) => ["saved", "preparing"].includes(a.status));
   const upcoming = active
@@ -49,33 +41,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ w
       <header className="page-head">
         <div>
           <h1>{welcome ? `Welcome${name}.` : `Your next opening${name ? name : ""}.`}</h1>
-          <p>Share what you find. Unlock what fits. Get it in before the deadline.</p>
+          <p>Find what's open, track your applications, and share what you come across.</p>
         </div>
       </header>
       <Bento label="Your dashboard">
-        <Tile span="lg-8 md-4" label="Your next opening">
-          <TileHead kicker="Your next opening" />
-          {data.match?.state === "candidate_ready" ? (
-            <>
-              <h2 style={{ fontSize: 28, lineHeight: "34px" }}>We found a fit for “{data.match.query_text || "your profile"}”.</h2>
-              <p className="muted">Review why it fits before you decide to unlock it. Nothing is charged until you do.</p>
-              <div className="tile-actions"><Link className="btn primary" href={`/matches/${data.match.id}`}>Review the match <Icon name="arrow" size={18} /></Link></div>
-            </>
-          ) : data.match?.state === "needs_clarification" ? (
-            <>
-              <h2 style={{ fontSize: 28, lineHeight: "34px" }}>We need one more detail to match you.</h2>
-              <p className="muted">A few eligibility questions decide whether results fit. You haven't been charged.</p>
-              <div className="tile-actions"><Link className="btn primary" href={`/matches/${data.match.id}`}>Answer and retry</Link></div>
-            </>
+        <Tile span="lg-8 md-4" label="Open now">
+          <TileHead kicker="Open now" action={<Link href="/discover" className="meta">See all</Link>} />
+          {data.recent.length ? (
+            <div className="cards">{data.recent.slice(0, 4).map((o) => <OpportunityCard key={o.id} o={o} tz={tz} />)}</div>
           ) : (
-            <>
-              <h2 style={{ fontSize: 28, lineHeight: "34px" }}>Tell us what you're looking for.</h2>
-              <p className="muted">We check eligibility, freshness and the deadline before suggesting anything. If nothing fits, you keep your credit.</p>
-              <div className="tile-actions">
-                <Link className="btn primary" href="/matches">Find a match</Link>
-                <Link className="btn" href="/discover">Browse the bank</Link>
-              </div>
-            </>
+            <Empty title="Nothing open on the board yet">New opportunities appear here as soon as they're checked. Seen one somewhere? Share it and earn a credit.</Empty>
           )}
         </Tile>
 
@@ -103,7 +78,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ w
               ))}
             </ul>
           ) : (
-            <Empty title="Nothing scheduled yet">Unlock an opportunity and save it to plan your preparation. We'll remind you before the official deadline.</Empty>
+            <Empty title="Nothing scheduled yet">Track an opportunity from the board to plan your preparation. We'll remind you before the official deadline.</Empty>
           )}
         </Tile>
 
@@ -124,20 +99,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ w
           )}
         </Tile>
 
-        <Tile span="lg-3 md-6" tone="subtle" label="Exchange balance">
-          <TileHead kicker="Exchange balance" />
+        <Tile span="lg-3 md-6" tone="subtle" label="Your credits">
+          <TileHead kicker="Your credits" />
           <div className="big-number">{data.wallet?.balance ?? 0}</div>
-          <span className="muted">credit{data.wallet?.balance === 1 ? "" : "s"} available{data.wallet?.starter_available ? " · 1 starter match ready" : ""}</span>
+          <span className="muted">Earned by sharing opportunities. Perks to spend them on are coming soon.</span>
           <div className="tile-actions"><Link href="/credits" className="btn small">History</Link></div>
-        </Tile>
-
-        <Tile span="lg-12" tone="flat" label="Recent discoveries" className="">
-          <TileHead kicker="Recently added" action={<Link href="/discover" className="meta">Discover all</Link>} />
-          {data.recent.length ? (
-            <div className="cards three">{data.recent.slice(0, 3).map((o) => <OpportunityCard key={o.id} o={o} tz={tz} />)}</div>
-          ) : (
-            <Empty title="The bank is empty for now">Opportunities appear here after someone shares one and it passes review.</Empty>
-          )}
         </Tile>
       </Bento>
     </div>

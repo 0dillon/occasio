@@ -20,7 +20,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const filtered = !!(input.q || input.category || input.remote || input.free || input.open);
   return (
     <div className="page">
-      <PageHead title="Discover" intro="Every listing shows where it came from and when we last checked it. Unlock one to see the application link." actions={<Link href="/matches" className="btn primary">Find a match for me</Link>} />
+      <PageHead title="Discover" intro="Every listing shows where it came from and when we last checked it. Open one for the full details and the application link." actions={<Link href="/matches" className="btn primary">Find a match for me</Link>} />
       <section className="tile" aria-label="Search and filters" style={{ marginBottom: 24 }}>
         <form className="stack" role="search" action="/discover">
           <div className="row" style={{ alignItems: "stretch" }}>

@@ -30,7 +30,7 @@ export default async function Deadlines() {
             </li>
           ))}
         </ul>
-      ) : <Empty title="No dates yet">Save an unlocked opportunity to plan your application and see its deadline here.</Empty>}
+      ) : <Empty title="No dates yet">Track an opportunity from the board to plan your application and see its deadline here.</Empty>}
     </div>
   );
 }
