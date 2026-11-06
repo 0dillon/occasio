@@ -10,6 +10,7 @@ import { one } from "@/db/tx";
 import { CATEGORY_LABEL, getDetail, getPreview } from "@/domain/catalog";
 import { formatInZone } from "@/lib/time";
 import { hostOf } from "@/lib/urls";
+import { sharedBy } from "@/domain/perks";
 import { asSelf, asUser, currentProfile, requireUser } from "@/server/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +26,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   if (!preview) notFound();
   const detail = await asUser(user, (c) => getDetail(c, id, user.id, staff));
   const app = await asSelf(user, (c) => one<{ id: string }>(c, "SELECT id FROM applications WHERE user_id = $1 AND opportunity_id = $2", [user.id, id]));
+  const mine = await asSelf(user, (c) => sharedBy(c, id, user.id));
   const o = detail ?? preview;
 
   return (
@@ -33,6 +35,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
         <div className="stack-sm" style={{ maxWidth: 820 }}>
           <div className="row">
             <span className="badge">{CATEGORY_LABEL[o.category]}</span>
+            {mine ? <span className="badge lime">Shared by you</span> : null}
             {o.is_fixture ? <span className="badge warn">Sample data · not a real opportunity</span> : null}
             {o.publication !== "published" ? <span className="badge danger">{o.publication === "hidden" ? "Withdrawn from the bank" : "Archived"}</span> : null}
           </div>

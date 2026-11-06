@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Empty, PageHead } from "@/components/Bento";
 import { OpportunityCard } from "@/components/Opportunity";
+import { createAlertAction } from "@/app/actions/perks";
 import { CATEGORIES, CATEGORY_LABEL, searchBank, searchSchema } from "@/domain/catalog";
+import { getPerks } from "@/domain/perks";
 import { asSelf, currentProfile, requireUser } from "@/server/session";
 
 export const metadata = { title: "Discover" };
@@ -12,6 +14,8 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const input = searchSchema.parse(raw);
   const tz = (await currentProfile())?.timezone ?? "UTC";
   const { items, nextCursor } = await asSelf(user, (c) => searchBank(c, input, user.id));
+  const perks = await asSelf(user, (c) => getPerks(c, user.id));
+  const alertMsg = typeof raw.alert === "string" ? raw.alert.slice(0, 200) : null;
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ ...input, cursor: undefined, ...patch })) if (v) p.set(k, String(v));
@@ -20,7 +24,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
   const filtered = !!(input.q || input.category || input.remote || input.free || input.open);
   return (
     <div className="page">
-      <PageHead title="Discover" intro="Every listing shows where it came from and when we last checked it. Open one for the full details and the application link." actions={<Link href="/matches" className="btn primary">Find a match for me</Link>} />
+      <PageHead title="Discover" intro="Every listing shows where it came from and when we last checked it. Open one for the full details and the application link." />
       <section className="tile" aria-label="Search and filters" style={{ marginBottom: 24 }}>
         <form className="stack" role="search" action="/discover">
           <div className="row" style={{ alignItems: "stretch" }}>
@@ -41,6 +45,25 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           </div>
         </form>
       </section>
+      {filtered ? (
+        <div className="tile" style={{ marginBottom: 24, gap: 12, flexWrap: "wrap", flexDirection: "row", alignItems: "center", justifyContent: "space-between", textAlign: "left" }}>
+          {alertMsg === "saved" ? (
+            <span role="status">Alert saved. We'll tell you when a new listing matches. <Link href="/credits">Manage alerts</Link></span>
+          ) : alertMsg ? (
+            <span role="alert">{alertMsg}</span>
+          ) : perks.personalAlerts ? (
+            <span>Get told when a new listing matches these filters.</span>
+          ) : (
+            <span className="muted">Alerts for searches like this open up once {perks.thresholds.personalAlerts} of your shared opportunities are added ({perks.earned} so far).</span>
+          )}
+          {perks.personalAlerts && alertMsg !== "saved" ? (
+            <form action={createAlertAction}>
+              {(["q", "category", "remote", "free", "open"] as const).map((k) => input[k] ? <input key={k} type="hidden" name={k} value={String(input[k])} /> : null)}
+              <button className="btn primary small" type="submit">Alert me</button>
+            </form>
+          ) : !perks.personalAlerts ? <Link href="/contribute" className="btn small">Share one</Link> : null}
+        </div>
+      ) : null}
       {items.length ? (
         <>
           <p className="meta" aria-live="polite">{items.length} result{items.length === 1 ? "" : "s"}{nextCursor ? " on this page" : ""}</p>
@@ -52,7 +75,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           title={filtered ? "No listings match these filters" : "No published opportunities yet"}
           action={filtered ? <Link className="btn" href="/discover">Clear filters</Link> : <Link className="btn primary" href="/contribute">Share the first one</Link>}
         >
-          {filtered ? "Try fewer filters, or ask for a match and we'll tell you why nothing fits." : "Opportunities appear after they pass a source check and review."}
+          {filtered ? "Try fewer filters. New listings are added as they pass their checks." : "Opportunities appear after they pass a source check and review."}
         </Empty>
       )}
     </div>

@@ -35,3 +35,10 @@ Realtime does not apply row security, so the live query filters by the session's
 ## D12. A free board; credits are earned by sharing (founder decision, 2026-11-06)
 Founder: OCCASIO is a board of opportunities. Signed-in members see every published listing in full (requirements, official and application links) and can track any of them as an application, at no cost. Signed-out visitors see previews only. Sharing an opportunity that is accepted as new still earns one credit; credits will pay for perks that are not yet chosen. This replaces "spend a credit to unlock a match" from the confirmed rule "exchange opportunities": nothing on the board costs a credit any more.
 Withdrawn listings stay visible only to staff and to members who tracked them before. The old match and unlock pages redirect to the board; the matching, redemption and refund code is kept but unused until the perks are decided.
+
+## D13. Contributor perks: badge and personal alerts (founder decision, 2026-11-06)
+Founder chose the first perks to build. Perks are reached by credits **earned** from shared opportunities over the account's lifetime; reaching one never spends a credit and spending later never removes it.
+- Contributor badge (proposed threshold: 1 earned): a "Contributor" badge on the credits page, and "Shared by you" on listings your submission created.
+- Personal alerts (proposed threshold: 3 earned): save Discover filters as an alert (max 5); when a matching listing is published the member gets an in-app notice and an email, once per listing, respecting notification preferences. The sharer is not alerted about their own listing.
+Thresholds and the alert cap are PROPOSED values in `src/config/product-rules.ts`. Early access and AI application review were offered and are not built.
+

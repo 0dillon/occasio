@@ -1,3 +1,4 @@
+import { productRules } from "@/config/product-rules";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bento, Empty, Tile, TileHead } from "@/components/Bento";
@@ -102,7 +103,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ w
         <Tile span="lg-3 md-6" tone="subtle" label="Your credits">
           <TileHead kicker="Your credits" />
           <div className="big-number">{data.wallet?.balance ?? 0}</div>
-          <span className="muted">Earned by sharing opportunities. Perks to spend them on are coming soon.</span>
+          <span className="muted">Earned by sharing opportunities. Share {productRules.proposed.perkThresholds.personalAlerts} that get added and you can set alerts for new listings.</span>
           <div className="tile-actions"><Link href="/credits" className="btn small">History</Link></div>
         </Tile>
       </Bento>
