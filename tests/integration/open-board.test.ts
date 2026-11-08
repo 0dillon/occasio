@@ -3,7 +3,7 @@ import type { FetchResult } from "@/adapters/fetch-client";
 import { extractionSchema, type Extraction, type Extractor } from "@/adapters/extractor";
 import { withAnon, withUser, withWorker } from "@/db/tx";
 import { register, verifyEmail } from "@/domain/auth";
-import { crawlDueSources, devpostEndDate, triageCandidates } from "@/domain/discovery";
+import { crawlDueSources, devpostEndDate, leadFromPost, triageCandidates } from "@/domain/discovery";
 import { dispatchOutbox } from "@/domain/outbox";
 import { awardReferral, referralCode } from "@/domain/referrals";
 import { closePools, ownerQuery, resetDb } from "../helpers/db";
@@ -59,6 +59,33 @@ describe("Devpost submission period", () => {
     expect(devpostEndDate("Nov 08, 2026")).toBe("2026-11-08");
     expect(devpostEndDate("Rolling")).toBeNull();
     expect(devpostEndDate(null)).toBeNull();
+  });
+});
+
+describe("opportunity blog leads (D15)", () => {
+  const post = (title: string, html: string) => ({ link: "https://blog.example.net/post", title: { rendered: title }, content: { rendered: html } });
+  it("takes the organizer link and the claimed deadline from a post", () => {
+    const lead = leadFromPost(post("2027 Example Studentship in UK | Fully Funded",
+      `<p><strong>Deadline:</strong> February 2, 2027</p><a href="https://twitter.com/blog">@blog</a>
+       <a href="https://scholarsregion.com/scholarship/x">READ HOW TO APPLY</a>
+       <a href="https://www.example.ac.uk/research/how-to-apply">How to apply | Example School</a>`));
+    expect(lead).toMatchObject({ title: "2027 Example Studentship in UK", url: "https://www.example.ac.uk/research/how-to-apply", deadline: "February 2, 2027", category: "scholarship", structured: "lead" });
+  });
+  it("retries a lead whose page hit a network error instead of rejecting it", async () => {
+    const [src] = await ownerQuery(
+      `INSERT INTO source_registry(name, base_url, domain, adapter, scope_path, access_review, approved_at, enabled)
+       VALUES ('Blog (test)', 'https://blog.example.net', 'blog.example.net', 'wordpress_leads', '/wp-json/wp/v2/posts', 'test fixture source', now(), true) RETURNING id`);
+    await ownerQuery(`INSERT INTO discovery_candidates(source_id, dedupe_key, url, payload) VALUES ($1, 'k1', 'https://www.example.ac.uk/apply', '{"title":"Example","structured":"lead"}')`, [src.id]);
+    const down = async (url: string) => ({ outcome: "error", requestedUrl: url, finalUrl: null, status: null, contentType: null, body: null, contentHash: null, etag: null, lastModified: null, detail: "getaddrinfo EAI_AGAIN" } as FetchResult);
+    await triageCandidates(5, down, NOW);
+    const [row] = await ownerQuery("SELECT state, payload->>'fetch_attempts' AS n, reason FROM discovery_candidates");
+    expect(row).toMatchObject({ state: "pending", n: "1" });
+    expect(row.reason).toMatch(/EAI_AGAIN/);
+  });
+  it("skips guides with no deadline, posts with no outside link, homepages and logins", () => {
+    expect(leadFromPost(post("7 Universities in Example", `<a href="https://www.example.ac.uk/courses/">courses</a>`))).toBeNull();
+    expect(leadFromPost(post("Example Internship", `Deadline: November 16, 2026 <a href="https://scholarsregion.com/s/1">apply</a>`))).toBeNull();
+    expect(leadFromPost(post("Example Grant", `Deadline: November 16, 2026 <a href="https://example.org/">site</a> <a href="https://example.org/account/login">apply</a>`))).toBeNull();
   });
 });
 

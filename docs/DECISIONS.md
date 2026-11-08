@@ -55,3 +55,11 @@ Founder: "no need to review anything, just scrape the web for opportunities and 
 - Invites: each member has a link (`/r/<code>`). When an invited person confirms their email, the inviter gets 1 credit (proposed), at most 10 a month (proposed). Self-invites and unknown codes are ignored; only the worker can award.
 - Perks (D13) now count all earned credits, from shares and invites.
 
+## D15. Opportunity blogs as lead sources: Scholarship Region (founder decision, 2026-11-08)
+Founder asked to include Scholarship Region after being told most of its posts don't link to the organizer.
+- Adapter `wordpress_leads` reads the site's public WordPress feed (robots.txt allows all agents except /wp-admin/).
+- A post is a lead only. It becomes a candidate when it states "Deadline: <date>" and links out to an organizer page. Links to the blog's own or sister sites, other opportunity blogs, social media, logins, documents and bare homepages are ignored. Guides and listicles (no deadline) are skipped.
+- The organizer page is fetched and checked like any other candidate, and the post's text is never published. Its deadline is a claim; the deadline has to be found on the organizer's page.
+- Network errors and rate limits are retried later (up to 3 tries) instead of counting as a verdict.
+- Expected yield is low. In the first live run, 40 posts gave 4 leads and 0 publishable pages: the linked pages were general pages without the specific deadline.
+

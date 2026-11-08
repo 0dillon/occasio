@@ -4,7 +4,7 @@ import { z } from "zod";
 import { restrictedFetch, type FetchResult } from "@/adapters/fetch-client";
 import { productRules } from "@/config/product-rules";
 import { type Db, many, one, withWorker } from "@/db/tx";
-import { readHtml } from "@/lib/html";
+import { decodeEntities, readHtml } from "@/lib/html";
 import { hostOf, normalizeUrl, parsePublicUrl, siteOf } from "@/lib/urls";
 import { sha256 } from "@/lib/security";
 import { audit, emit } from "./audit";
@@ -35,7 +35,9 @@ const candidateSchema = z.object({
   timezone: z.string().max(60).optional(),
   summary: z.string().max(600).optional(),
   /** Set by structured sources whose record is the official listing (e.g. Devpost). */
-  structured: z.enum(["devpost"]).optional(),
+  structured: z.enum(["devpost", "lead"]).optional(),
+  /** The blog post a lead came from (never published). */
+  lead_url: z.string().max(500).optional(),
   period: z.string().max(80).optional(),
   location: z.string().max(120).optional(),
 });
@@ -49,6 +51,7 @@ async function loadListing(src: any, fetcher: typeof restrictedFetch): Promise<{
     return { result: null, items, hash: sha256(raw), fixture: true };
   }
   if (src.adapter === "devpost") return loadDevpost(src, fetcher);
+  if (src.adapter === "wordpress_leads") return loadWordpressLeads(src, fetcher);
   const r = await fetcher(new URL(src.scope_path, src.base_url).toString(), { etag: src.last_etag, lastModified: src.last_modified });
   if (r.outcome !== "ok" || r.notModified || !r.body) return { result: r, items: [], hash: r.contentHash, fixture: false };
   let items: SourceCandidate[] = [];
@@ -88,6 +91,62 @@ const devpostItem = z.object({
   submission_period_dates: z.string().nullable().optional(),
   displayed_location: z.object({ location: z.string().nullable().optional() }).partial().nullable().optional(),
 }).passthrough();
+
+/**
+ * Opportunity blogs (e.g. Scholarship Region) rewrite other organizations'
+ * listings. A post is only a LEAD: it becomes a candidate when it names a
+ * deadline and links out to what looks like the organizer's page, and that
+ * page is what gets fetched and checked. The blog's own text is never published.
+ */
+const LEAD_SKIP_HOSTS = /(^|\.)(scholarsregion\.com|scholarshipregion\.com|intelregion\.com|devsregion\.com|scholarsworld\.ng|opportunitydesk\.org|opportunitiesforafricans\.com|scholars4dev\.com|afterschoolafrica\.com|twitter\.com|x\.com|facebook\.com|whatsapp\.com|wa\.me|t\.me|telegram\.me|linkedin\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|goo\.gl|bit\.ly|amazon\.com)$/i;
+const LEAD_SKIP_PATHS = /(login|signin|sign-in|account|register|\/cart|\.pdf$|\.docx?$)/i;
+const LEAD_PREFER_TEXT = /(apply|official|website|application|portal|programme page|program page|how to apply)/i;
+
+export function leadFromPost(post: { link?: string; title?: { rendered?: string }; content?: { rendered?: string } }): SourceCandidate | null {
+  const html = post.content?.rendered ?? "";
+  const title = decodeEntities((post.title?.rendered ?? "").replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+  const dl = html.match(/Deadline:\s*(?:<[^>]+>\s*)*([A-Z][a-z]+ \d{1,2}, \d{4})/);
+  if (!title || !dl) return null; // listicles and guides carry no deadline
+  const links: { href: string; text: string }[] = [];
+  for (const m of html.matchAll(/<a\s[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    let u: URL;
+    try { u = new URL(decodeEntities(m[1]!)); } catch { continue; }
+    if (LEAD_SKIP_HOSTS.test(u.hostname) || LEAD_SKIP_PATHS.test(u.pathname) || u.pathname.replace(/\/+$/, "") === "") continue;
+    links.push({ href: u.toString(), text: decodeEntities(m[2]!.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim() });
+  }
+  const pick = links.find((l) => LEAD_PREFER_TEXT.test(l.text)) ?? links[0];
+  if (!pick) return null;
+  const t = title.toLowerCase();
+  const category = /internship/.test(t) ? "internship" : /fellowship/.test(t) ? "fellowship" : /competition|contest|essay|challenge/.test(t) ? "competition"
+    : /grant/.test(t) ? "grant" : /scholarship|studentship|bursar|fully funded|masters|phd/.test(t) ? "scholarship" : undefined;
+  return {
+    title: title.replace(/\s*\|\s*.*$/, "").slice(0, 200), url: pick.href, category, deadline: dl[1]!,
+    structured: "lead", lead_url: post.link?.slice(0, 500),
+  };
+}
+
+async function loadWordpressLeads(src: any, fetcher: typeof restrictedFetch) {
+  const items: SourceCandidate[] = [];
+  let first: FetchResult | null = null;
+  const hashes: string[] = [];
+  for (let page = 1; page <= productRules.proposed.discoveryMaxPages; page++) {
+    const u = new URL(src.scope_path, src.base_url);
+    u.searchParams.set("page", String(page));
+    const r = await fetcher(u.toString());
+    first ??= r;
+    if (r.outcome !== "ok" || !r.body) {
+      if (page === 1) return { result: r, items: [], hash: r.contentHash, fixture: false };
+      break;
+    }
+    hashes.push(r.contentHash ?? "");
+    let posts: any[] = [];
+    try { posts = JSON.parse(r.body); } catch { break; }
+    if (!Array.isArray(posts) || !posts.length) break;
+    for (const p of posts) { const lead = leadFromPost(p); if (lead) items.push(lead); }
+    await new Promise((res) => setTimeout(res, Math.max(1, src.min_interval_seconds) * 1000));
+  }
+  return { result: first, items: items.slice(0, 100), hash: sha256(hashes.join("|")), fixture: false };
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /**
@@ -278,6 +337,17 @@ async function processCandidate(r: { id: string; url: string; payload: any }, fe
   if (early) { await mark("duplicate", "Already on the board", early); return false; }
 
   let f = await fetcher(r.url);
+  // Network hiccups (DNS, timeouts) and rate limits aren't verdicts on the page:
+  // try again later, up to three times, instead of rejecting.
+  const transient = f.outcome === "error" ||f.status === 429 || (f.status ?? 0) >= 500;
+  const tries = Number(r.payload?.fetch_attempts ?? 0) + 1;
+  if (transient && r.payload?.structured !== "devpost" && tries < 3) {
+    await withWorker((c) => c.query(
+      `UPDATE discovery_candidates SET state = 'pending', lease_until = now() + interval '30 minutes',
+              payload = jsonb_set(payload, '{fetch_attempts}', to_jsonb($2::int)), reason = $3 WHERE id = $1`,
+      [r.id, tries, `Retrying after: ${f.outcome}${f.status ? ` ${f.status}` : ""}${f.detail ? ` (${f.detail.slice(0, 120)})` : ""}`]));
+    return false;
+  }
   const page = f.outcome === "ok" && f.body && (f.contentType ?? "").includes("html") ? readHtml(f.body, f.finalUrl ?? undefined) : null;
   // Devpost refuses automated requests for hackathon pages (HTTP 403). We don't
   // get around that; its own public list record is the official listing instead.
