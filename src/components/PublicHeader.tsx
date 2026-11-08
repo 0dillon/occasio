@@ -30,7 +30,7 @@ export function Footer() {
       <div className="page footer-grid">
         <div className="stack-sm">
           <Logo variant="paper" height={22} />
-          <span>Opportunity exchange. Share what you find; unlock what fits.</span>
+          <span>A free board of checked opportunities. Share what you find; track every application.</span>
         </div>
         <nav aria-label="Footer" className="row" style={{ gap: 20 }}>
           <Link href="/legal/terms">Terms (draft)</Link>

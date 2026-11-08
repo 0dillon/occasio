@@ -51,13 +51,31 @@ describe("row security between accounts", () => {
     expect(r instanceof Error || r.rowCount === 0).toBe(true);
   });
 
-  it("anonymous and non-entitled users get previews without links", async () => {
+  it("anonymous visitors get previews without links; any signed-in member gets full details (D12)", async () => {
     const opp = await publish();
-    const stranger = await makeUser();
+    const member = await makeUser();
     const preview = await withAnon((c) => getPreview(c, opp, null));
     expect(preview).not.toBeNull();
     expect(JSON.stringify(preview)).not.toContain("apply.example.com");
-    expect(await withUser(stranger.id, (c) => getDetail(c, opp, stranger.id))).toBeNull();
+    expect(await withAnon((c) => getDetail(c, opp, null))).toBeNull();
+    const d = await withUser(member.id, (c) => getDetail(c, opp, member.id));
+    expect(d?.application_url).toContain("apply.example.com");
+  });
+
+  it("any signed-in member can track a published opportunity without spending a credit", async () => {
+    const opp = await publish();
+    const member = await makeUser();
+    const app = await withUser(member.id, (c) => saveApplication(c, member.id, opp));
+    expect(app).toBeTruthy();
+    const [w] = await ownerQuery("SELECT balance FROM wallets WHERE user_id = $1", [member.id]);
+    expect(Number(w.balance)).toBe(0);
+  });
+
+  it("a withdrawn listing stays hidden from members who never tracked it", async () => {
+    const opp = await publish();
+    const member = await makeUser();
+    await ownerQuery("UPDATE opportunities SET publication = 'hidden' WHERE id = $1", [opp]);
+    expect(await withUser(member.id, (c) => getDetail(c, opp, member.id))).toBeNull();
   });
 
   it("an entitled user gets the application link", async () => {

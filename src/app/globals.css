@@ -432,3 +432,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; line-heig
 .subnav .chip { flex: none; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 14px; line-height: 21px; color: var(--color-text-secondary); }
+
+/* Perks (D13) */
+.perk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.perk-list > li { display: grid; gap: 2px; padding: 12px 0; border-top: 1px solid var(--color-line); }
+.perk-list > li.row-between { display: flex; }
+.perk-list > li.done strong::after { content: " \2713"; color: var(--color-brand); }

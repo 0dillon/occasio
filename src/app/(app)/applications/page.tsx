@@ -20,7 +20,7 @@ export default async function Applications() {
       <PageHead title="My applications" intro="Your preparation, in your words. “Submitted” is only ever what you tell us; opening a link never changes it." actions={<Link href="/deadlines" className="btn">Upcoming dates</Link>} />
       {!apps.length ? (
         <Empty title="Nothing tracked yet" action={<Link className="btn primary" href="/matches">Find a match</Link>}>
-          Unlock an opportunity, then choose “Save and plan my application” to get a checklist and reminders.
+          Save“Save and plan my application” to get a checklist and reminders.
         </Empty>
       ) : (
         <div className="stack" style={{ gap: 32 }}>

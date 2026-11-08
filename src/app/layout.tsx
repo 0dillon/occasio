@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: { default: "OCCASIO · Your next opening", template: "%s · OCCASIO" },
-  description: "Share opportunities you find, unlock ones that fit you, and get your application in before the deadline.",
+  description: "A free board of checked opportunities, with help managing every application. Share what you find and earn credits.",
   icons: { icon: "/favicon.svg" },
 };
 export const viewport: Viewport = { themeColor: "#151812", colorScheme: "dark" };

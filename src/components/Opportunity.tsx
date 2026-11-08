@@ -24,7 +24,6 @@ export function OpportunityCard({ o, tz }: { o: OpportunityPreview; tz: string }
     <Link href={`/opportunities/${o.id}`} className="card">
       <div className="row-between">
         <span className="badge">{CATEGORY_LABEL[o.category]}</span>
-        {o.unlocked ? <span className="badge lime">Unlocked</span> : null}
       </div>
       <span className="card-title">{o.title}</span>
       <span className="meta">{o.organizer}</span>

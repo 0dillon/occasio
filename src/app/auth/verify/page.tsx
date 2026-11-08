@@ -20,7 +20,7 @@ export default async function Verify({ searchParams }: { searchParams: Promise<{
     return (
       <div className="tile auth-card fade-in">
         <h1 style={{ fontSize: 32 }}>{error ? "That link didn't work" : "Email confirmed"}</h1>
-        <p className="muted">{error ?? "You can now share opportunities and unlock matches."}</p>
+        <p className="muted">{error ?? "You can now share opportunities and earn credits."}</p>
         <Link className="btn primary" href={user ? "/home" : "/auth/sign-in?verified=1"}>{user ? "Continue" : "Sign in"}</Link>
         {error && user ? <ActionForm action={resendVerificationAction}><Submit className="btn">Send a new link</Submit></ActionForm> : null}
       </div>

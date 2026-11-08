@@ -1,5 +1,6 @@
 import { many, one, withWorker } from "@/db/tx";
 import { notify } from "./audit";
+import { alertForPublishedOpportunity } from "./perks";
 import { planApplication, replanForOpportunity } from "./reminders";
 
 type Handler = (e: { id: string; event_type: string; aggregate_id: string; payload: any }) => Promise<void>;
@@ -12,6 +13,10 @@ const consumers: Record<string, { name: string; run: Handler }[]> = {
   "application.changed.v1": [{
     name: "reminder-planner",
     run: (e) => withWorker(async (c) => { await planApplication(c, e.aggregate_id); }),
+  }],
+  "opportunity.published.v1": [{
+    name: "saved-search-alerts",
+    run: (e) => withWorker(async (c) => { await alertForPublishedOpportunity(c, e.aggregate_id); }),
   }],
   "opportunity.changed.v1": [{
     name: "reminder-replanner",
