@@ -54,14 +54,14 @@ export default async function Discover({ searchParams }: { searchParams: Promise
           ) : perks.personalAlerts ? (
             <span>Get told when a new listing matches these filters.</span>
           ) : (
-            <span className="muted">Alerts for searches like this open up once {perks.thresholds.personalAlerts} of your shared opportunities are added ({perks.earned} so far).</span>
+            <span className="muted">Alerts for searches like this open up at {perks.thresholds.personalAlerts} credits earned ({perks.earned} so far). Share an opportunity or invite someone.</span>
           )}
           {perks.personalAlerts && alertMsg !== "saved" ? (
             <form action={createAlertAction}>
               {(["q", "category", "remote", "free", "open"] as const).map((k) => input[k] ? <input key={k} type="hidden" name={k} value={String(input[k])} /> : null)}
               <button className="btn primary small" type="submit">Alert me</button>
             </form>
-          ) : !perks.personalAlerts ? <Link href="/contribute" className="btn small">Share one</Link> : null}
+          ) : !perks.personalAlerts ? <Link href="/credits" className="btn small">Earn credits</Link> : null}
         </div>
       ) : null}
       {items.length ? (

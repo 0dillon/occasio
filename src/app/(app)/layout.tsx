@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       ) : null}
       <header className="topbar">
         <div className="page topbar-inner">
-          <Link href="/home" className="brand-link" aria-label="OCCASIO home"><Logo variant="paper" /></Link>
+          <Link href="/home" className="brand-link" aria-label="OCCASIO home"><Logo variant="paper" className="brand-full" /><Logo variant="paper" kind="symbol" height={26} className="brand-compact" /></Link>
           <DesktopNav />
           <div className="topbar-actions">
             <Link href="/contribute" className="btn primary small hide-sm">

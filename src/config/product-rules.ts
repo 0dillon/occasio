@@ -57,6 +57,19 @@ export const productRules = {
      * opportunities (lifetime), not spent. Thresholds are proposals.
      */
     perkThresholds: { contributorBadge: 1, personalAlerts: 3 },
+    /** Credits when someone you invited confirms their email (D14). */
+    creditsPerReferral: 1,
+    /** Referral awards per referrer per calendar month (abuse limit). */
+    maxReferralAwardsPerMonth: 10,
+    /**
+     * D14: listings publish without a person. When false, a page read by the
+     * rule-based parser can publish if every other check is clean.
+     */
+    autoPublishRequiresAi: false,
+    /** A deadline without a stated timezone can publish; it is shown as "timezone not stated". */
+    autoPublishAllowsUnknownTimezone: true,
+    /** Discovery: pages fetched from a paged source per crawl. */
+    discoveryMaxPages: 8,
     /** Saved alert searches per member. */
     maxAlertSearches: 5,
     sessionDays: 30,

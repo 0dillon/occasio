@@ -5,12 +5,14 @@ import { restrictedFetch, type FetchResult } from "@/adapters/fetch-client";
 import { productRules } from "@/config/product-rules";
 import { type Db, many, one, withWorker } from "@/db/tx";
 import { readHtml } from "@/lib/html";
-import { normalizeUrl, parsePublicUrl } from "@/lib/urls";
+import { hostOf, normalizeUrl, parsePublicUrl, siteOf } from "@/lib/urls";
 import { sha256 } from "@/lib/security";
 import { audit, emit } from "./audit";
+import { CATEGORIES, type Category } from "./catalog";
 import { planningCutoff, type DeadlineRecord } from "./deadlines";
-import { saveSnapshot } from "./verification";
-import { findDeadline } from "@/adapters/extractor";
+import { publishWithoutAward } from "./exchange";
+import { assess, autoDraft, autoPublishBlockers, saveSnapshot } from "./verification";
+import { findDeadline, getExtractor, ruleBasedExtractor, type Extraction, type Extractor } from "@/adapters/extractor";
 
 export const sourceInput = z.object({
   name: z.string().trim().min(2).max(120),
@@ -32,6 +34,10 @@ const candidateSchema = z.object({
   deadline: z.string().max(40).optional(),
   timezone: z.string().max(60).optional(),
   summary: z.string().max(600).optional(),
+  /** Set by structured sources whose record is the official listing (e.g. Devpost). */
+  structured: z.enum(["devpost"]).optional(),
+  period: z.string().max(80).optional(),
+  location: z.string().max(120).optional(),
 });
 export type SourceCandidate = z.infer<typeof candidateSchema>;
 
@@ -42,6 +48,7 @@ async function loadListing(src: any, fetcher: typeof restrictedFetch): Promise<{
     const items = z.array(candidateSchema).parse(JSON.parse(raw));
     return { result: null, items, hash: sha256(raw), fixture: true };
   }
+  if (src.adapter === "devpost") return loadDevpost(src, fetcher);
   const r = await fetcher(new URL(src.scope_path, src.base_url).toString(), { etag: src.last_etag, lastModified: src.last_modified });
   if (r.outcome !== "ok" || r.notModified || !r.body) return { result: r, items: [], hash: r.contentHash, fixture: false };
   let items: SourceCandidate[] = [];
@@ -65,6 +72,78 @@ async function loadListing(src: any, fetcher: typeof restrictedFetch): Promise<{
       .map((l) => ({ title: l.text.slice(0, 200), url: l.href }));
   }
   return { result: r, items: items.slice(0, 100), hash: r.contentHash, fixture: false };
+}
+
+/**
+ * Devpost's public hackathon list (robots.txt allows all agents). Each
+ * hackathon has its own page on Devpost, which is the organizer's official
+ * listing, so the candidate URL is the page we verify. Paged JSON.
+ */
+const devpostItem = z.object({
+  title: z.string(),
+  url: z.string().url(),
+  open_state: z.string().optional(),
+  invite_only: z.boolean().optional(),
+  organization_name: z.string().nullable().optional(),
+  submission_period_dates: z.string().nullable().optional(),
+  displayed_location: z.object({ location: z.string().nullable().optional() }).partial().nullable().optional(),
+}).passthrough();
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/**
+ * Last day of a Devpost submission period, as shown on devpost.com:
+ * "Oct 30 - Dec 04, 2026", "Nov 01 - 10, 2026", "Jul 16, 2026 - Jan 15, 2027", "Nov 08, 2026".
+ * Returns YYYY-MM-DD or null when the text isn't in one of those shapes.
+ */
+export function devpostEndDate(period: string | null | undefined): string | null {
+  if (!period) return null;
+  const end = period.split(" - ").at(-1)!.trim();
+  const m = end.match(/^(?:([A-Z][a-z]{2}) )?(\d{1,2}), (\d{4})$/);
+  if (!m) return null;
+  const month = m[1] ?? period.trim().match(/^([A-Z][a-z]{2})/)?.[1];
+  const mo = month ? MONTHS.indexOf(month) : -1;
+  const day = Number(m[2]);
+  if (mo < 0 || day < 1 || day > 31) return null;
+  return `${m[3]}-${String(mo + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+async function loadDevpost(src: any, fetcher: typeof restrictedFetch) {
+  const items: SourceCandidate[] = [];
+  let first: FetchResult | null = null;
+  const hashes: string[] = [];
+  for (let page = 1; page <= productRules.proposed.discoveryMaxPages; page++) {
+    const u = new URL(src.scope_path, src.base_url);
+    u.searchParams.set("page", String(page));
+    const r = await fetcher(u.toString());
+    first ??= r;
+    if (r.outcome !== "ok" || !r.body) {
+      if (page === 1) return { result: r, items: [], hash: r.contentHash, fixture: false };
+      break;
+    }
+    hashes.push(r.contentHash ?? "");
+    let list: unknown[] = [];
+    try {
+      const j = JSON.parse(r.body);
+      list = Array.isArray(j?.hackathons) ? j.hackathons : [];
+    } catch {
+      break;
+    }
+    if (!list.length) break;
+    for (const raw of list) {
+      const p = devpostItem.safeParse(raw);
+      if (!p.success || p.data.invite_only || (p.data.open_state && p.data.open_state !== "open")) continue;
+      const end = devpostEndDate(p.data.submission_period_dates);
+      items.push({
+        title: p.data.title.slice(0, 200), url: p.data.url, category: "hackathon",
+        organizer: /^(n\/?a|none|-+)$/i.test(p.data.organization_name?.trim() ?? "") ? undefined : p.data.organization_name?.trim().slice(0, 120) || undefined,
+        deadline: end ?? undefined, structured: "devpost",
+        period: p.data.submission_period_dates?.slice(0, 80) || undefined,
+        location: p.data.displayed_location?.location?.slice(0, 120) || undefined,
+      });
+    }
+    await new Promise((res) => setTimeout(res, Math.max(1, src.min_interval_seconds) * 1000));
+  }
+  return { result: first, items: items.slice(0, 100), hash: sha256(hashes.join("|")), fixture: false };
 }
 
 /**
@@ -124,20 +203,122 @@ export async function crawlDueSources(fetcher = restrictedFetch, now = new Date(
   return { sources: due.length, candidates: total, stopped: false };
 }
 
-/** Moves new candidates into review (the same human gate as contributions). */
-export async function triageCandidates(limit = 20) {
-  return withWorker(async (c) => {
-    const rows = await many(c, `SELECT id, url FROM discovery_candidates WHERE state = 'pending' ORDER BY created_at LIMIT $1 FOR UPDATE SKIP LOCKED`, [limit]);
-    for (const r of rows) {
-      let dup: { id: string } | undefined;
-      try {
-        dup = await one(c, `SELECT o.id FROM url_aliases a JOIN opportunities o ON o.id = a.opportunity_id
-                             WHERE a.normalized_url = $1 AND o.availability <> 'closed' LIMIT 1`, [normalizeUrl(r.url)]);
-      } catch { /* fixture URL */ }
-      if (dup) await c.query("UPDATE discovery_candidates SET state = 'duplicate', opportunity_id = $2, reason = 'Already in the bank' WHERE id = $1", [r.id, dup.id]);
-      else await c.query("UPDATE discovery_candidates SET state = 'review_required' WHERE id = $1", [r.id]);
+/**
+ * D14: there is no review queue. Each new candidate's own page is fetched
+ * through the restricted fetcher, read by the extractor and checked by the
+ * same gate as shared links. Clean ones are published (they never mint
+ * credits); the rest are recorded as skipped, with the reasons.
+ */
+export async function triageCandidates(limit = 5, fetcher = restrictedFetch, now = new Date(), extractorOverride?: Extractor) {
+  const rows = await withWorker((c) => many<{ id: string; url: string; payload: any }>(c,
+    `UPDATE discovery_candidates SET lease_until = now() + interval '5 minutes'
+      WHERE id IN (SELECT id FROM discovery_candidates
+                    WHERE state = 'pending' AND (lease_until IS NULL OR lease_until < now())
+                    ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT $1)
+      RETURNING id, url, payload`, [limit]));
+  let published = 0;
+  for (const r of rows) {
+    try {
+      if (await processCandidate(r, fetcher, now, extractorOverride)) published++;
+    } catch (e) {
+      await withWorker((c) => c.query("UPDATE discovery_candidates SET state = 'error', reason = $2, lease_until = NULL WHERE id = $1",
+        [r.id, (e as Error).message.slice(0, 300)]));
     }
-    return rows.length;
+  }
+  return { processed: rows.length, published };
+}
+
+async function existingFor(urls: string[]) {
+  const norm = urls.flatMap((u) => { try { return [normalizeUrl(u)]; } catch { return []; } });
+  if (!norm.length) return null;
+  const r = await withWorker((c) => one<{ id: string }>(c,
+    `SELECT o.id FROM url_aliases a JOIN opportunities o ON o.id = a.opportunity_id
+      WHERE a.normalized_url = ANY($1) AND o.availability <> 'closed' LIMIT 1`, [norm]));
+  return r?.id ?? null;
+}
+
+/** Evidence and extraction built from a Devpost list record (the platform's own data for its hosted hackathon). */
+function devpostRecord(r: { url: string; payload: any }) {
+  const p = r.payload;
+  const body = JSON.stringify({ source: "devpost.com/api/hackathons", title: p.title, url: r.url, organization_name: p.organizer ?? null, submission_period_dates: p.period ?? null, location: p.location ?? null });
+  const fetch: FetchResult = {
+    outcome: "ok", requestedUrl: r.url, finalUrl: r.url, status: 200, contentType: "application/json", body,
+    contentHash: sha256(body), etag: null, lastModified: null, detail: "Devpost list record (hackathon page refuses automated requests)",
+  } as FetchResult;
+  const online = (p.location ?? "").toLowerCase() === "online";
+  const extraction = (now: Date): Extraction => {
+    const date = p.deadline && /^\d{4}-\d{2}-\d{2}$/.test(p.deadline) ? p.deadline : null;
+    const passed = date ? new Date(`${date}T23:59:59Z`).getTime() < now.getTime() : false;
+    return {
+      schema_version: "1", extractor: "devpost-record-v1",
+      title: { value: String(p.title).slice(0, 200), origin: "source_page", excerpt: p.title },
+      organizer: { value: (p.organizer || "Devpost").slice(0, 120), origin: "source_page" },
+      category: { value: "hackathon", origin: "source_page" },
+      deadline: {
+        source_text: p.period ? `Submission period on Devpost: ${p.period}` : null, local_date: date, local_time: null, timezone: null,
+        rolling: false, origin: date ? "source_page" : "none", excerpt: p.period ?? null,
+      },
+      location_mode: online ? "remote" : p.location ? "on_site" : "unknown",
+      fee: { status: "unknown", text: null, excerpt: null },
+      summary: [online ? "Online" : p.location, p.period ? `Submissions ${p.period}` : null].filter(Boolean).join(" · ").slice(0, 600) || null,
+      conflicts: passed ? ["The deadline found appears to have passed"] : [],
+      missing_information: date ? ["deadline_timezone"] : ["deadline"],
+      risk_flags: [],
+    };
+  };
+  return { fetch, extraction };
+}
+
+async function processCandidate(r: { id: string; url: string; payload: any }, fetcher: typeof restrictedFetch, now: Date, extractorOverride?: Extractor) {
+  const mark = (state: string, reason: string | null, opp: string | null = null) => withWorker((c) =>
+    c.query("UPDATE discovery_candidates SET state = $2, reason = $3, opportunity_id = $4, lease_until = NULL WHERE id = $1",
+      [r.id, state, reason?.slice(0, 500) ?? null, opp]));
+  if (r.payload?.fixture) { await mark("rejected", "Sample source; never published"); return false; }
+  const early = await existingFor([r.url]);
+  if (early) { await mark("duplicate", "Already on the board", early); return false; }
+
+  let f = await fetcher(r.url);
+  const page = f.outcome === "ok" && f.body && (f.contentType ?? "").includes("html") ? readHtml(f.body, f.finalUrl ?? undefined) : null;
+  // Devpost refuses automated requests for hackathon pages (HTTP 403). We don't
+  // get around that; its own public list record is the official listing instead.
+  const fromRecord = r.payload?.structured === "devpost" && f.outcome !== "ok" ? devpostRecord(r) : null;
+  if (fromRecord) f = fromRecord.fetch;
+  const flags = await withWorker((c) => many<{ key: string; value: unknown }>(c, "SELECT key, value FROM app_flags"));
+  const flag = (k: string) => flags.find((x) => x.key === k)?.value === true;
+  const cat = (CATEGORIES as readonly string[]).includes(r.payload?.category) ? (r.payload.category as Category) : null;
+  // Listing details are leads only; the extractor marks anything not on the page as a claim.
+  const claims = { title: r.payload?.title ?? null, organizer: r.payload?.organizer ?? null, category: cat, deadline_text: r.payload?.deadline ?? null };
+  const extractor = extractorOverride ?? await getExtractor({ aiEnabled: flag("ai_extraction_enabled") });
+  let x: Extraction;
+  if (fromRecord) x = fromRecord.extraction(now);
+  else {
+    try {
+      x = await extractor.extract({ page, pageUrl: f.finalUrl, claims, hasPoster: false, now });
+    } catch {
+      x = await ruleBasedExtractor.extract({ page, pageUrl: f.finalUrl, claims, hasPoster: false, now });
+    }
+  }
+  const dup = await existingFor([r.url, f.finalUrl].filter(Boolean) as string[]);
+
+  return withWorker(async (c) => {
+    const known = await one(c, "SELECT 1 FROM organizers WHERE trust = 'supported' AND $1 = ANY(domains)", [siteOf(hostOf(f.finalUrl ?? r.url))]);
+    const { checks, decision } = assess(f, x, { duplicateOf: dup, knownOrganizerDomain: !!known, now });
+    const set = (state: string, reason: string | null, opp: string | null = null) =>
+      c.query("UPDATE discovery_candidates SET state = $2, reason = $3, opportunity_id = $4, lease_until = NULL WHERE id = $1",
+        [r.id, state, reason?.slice(0, 500) ?? null, opp]);
+    if (decision === "duplicate") { await set("duplicate", "Already on the board", dup); return false; }
+    if (decision !== "review_required") {
+      await set("rejected", checks.filter((k) => k.status === "fail").map((k) => `${k.check}: ${k.detail}`).join("; ") || decision);
+      return false;
+    }
+    const blockers = flag("auto_publish_enabled") ? autoPublishBlockers(f, x, checks, now) : ["Auto-publish is off"];
+    if (blockers.length) { await set("rejected", `Not published: ${blockers.join("; ")}`); return false; }
+    const snap = await saveSnapshot(c, f, page?.title ?? null, x.deadline.excerpt ?? page?.text.slice(0, 600) ?? null);
+    const draft = autoDraft({ application_url: r.url }, x, f, snap, now);
+    const res = await publishWithoutAward(c, draft, "discovery", { kind: "worker" });
+    await set(res.kind === "published" ? "published" : "duplicate", null, res.opportunityId);
+    await audit(c, { kind: "worker" }, "discovery.auto_published", "discovery_candidate", r.id, { changes: { opportunity: res.opportunityId, extractor: x.extractor } });
+    return res.kind === "published";
   });
 }
 

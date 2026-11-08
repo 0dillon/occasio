@@ -46,3 +46,12 @@ Founder chose the first perks to build. Perks are reached by credits **earned** 
 - Personal alerts (proposed threshold: 3 earned): save Discover filters as an alert (max 5); when a matching listing is published the member gets an in-app notice and an email, once per listing, respecting notification preferences. The sharer is not alerted about their own listing.
 Thresholds and the alert cap are PROPOSED values in `src/config/product-rules.ts`. Early access and AI application review were offered and are not built.
 
+## D14. An open board fed by web discovery; credits for sharing and inviting (founder decision, 2026-11-08)
+Founder: "no need to review anything, just scrape the web for opportunities and put it there." Credits come from sharing an opportunity you're applying to, and from sharing OCCASIO with other people.
+- No review queue. Auto-publish is on by default (migration 0005). A listing still publishes only when its checks pass: the page or official record loads, title and deadline date come from it, the deadline hasn't passed and is more than 72 hours away, no risk signals or conflicts, not a duplicate. Anything else is skipped with its reasons (discovery) or returned to the sharer as "needs information" (shares). An admin can still switch auto-publish off.
+- No AI key required: the rule-based parser may publish when every check passes (`autoPublishRequiresAi: false`). A deadline with no stated timezone publishes as date-only and is shown as such (`autoPublishAllowsUnknownTimezone: true`).
+- First source: Devpost's public open-hackathon list (robots.txt allows all agents). Devpost answers our crawler's requests for individual hackathon pages with HTTP 403; we do not disguise the crawler to get past that. For Devpost-hosted hackathons the platform's own list record (title, organizer, submission period, location) is used as the official listing, recorded as the evidence snapshot, with the deadline as the last day of the submission period, date-only.
+- Sharing an opportunity also adds it to the sharer's applications, new (1 credit) or already on the board (no credit).
+- Invites: each member has a link (`/r/<code>`). When an invited person confirms their email, the inviter gets 1 credit (proposed), at most 10 a month (proposed). Self-invites and unknown codes are ignored; only the worker can award.
+- Perks (D13) now count all earned credits, from shares and invites.
+

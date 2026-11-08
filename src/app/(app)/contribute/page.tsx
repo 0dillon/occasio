@@ -16,7 +16,7 @@ export default async function Contribute() {
   const p = productRules.proposed;
   return (
     <div className="page">
-      <PageHead title="Make space for someone" intro="Share the official link, and a poster image if you have one. We check the source; a person reviews it before it goes into the bank." />
+      <PageHead title="Share an opportunity" intro="Applying to something that isn't on the board? Paste the official link. We check the organizer's page and add it to the board and to your applications. If it's new, you earn a credit." />
       <Bento>
         <Tile span="lg-8 md-4">
           {!user.emailVerified ? (

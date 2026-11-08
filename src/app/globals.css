@@ -438,3 +438,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; line-heig
 .perk-list > li { display: grid; gap: 2px; padding: 12px 0; border-top: 1px solid var(--color-line); }
 .perk-list > li.row-between { display: flex; }
 .perk-list > li.done strong::after { content: " \2713"; color: var(--color-brand); }
+
+/* Tile header links meet the 24px minimum target size (WCAG 2.2 AA 2.5.8). */
+.tile-head > a { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 0; }

@@ -1,8 +1,9 @@
+import { recordReferral } from "./referrals";
 import { z } from "zod";
 import { productRules } from "@/config/product-rules";
 import { type Db, one, withAnon } from "@/db/tx";
 import { hashPassword, newToken, sha256, verifyPassword } from "@/lib/security";
-import { audit } from "./audit";
+import { audit, emit } from "./audit";
 import { DomainError, fail } from "./errors";
 import { queueEmail } from "./outbound";
 
@@ -62,7 +63,7 @@ async function createAuthToken(c: Db, userId: string, kind: "verify_email" | "re
  * Registers an account. To avoid revealing whether an address is registered,
  * the caller always shows the same "check your email" response.
  */
-export async function register(input: { email: string; password: string; ip: string; origin: string }) {
+export async function register(input: { email: string; password: string; ip: string; origin: string; ref?: string | null }) {
   const email = parseField("email", emailSchema, input.email);
   const password = parseField("password", passwordSchema, input.password);
   const hash = await hashPassword(password);
@@ -89,6 +90,7 @@ export async function register(input: { email: string; password: string; ip: str
     // Wallet/profile rows are created with the user; RLS requires the identity.
     await c.query("SELECT set_config('occasio.user_id', $1, true)", [id]);
     await c.query("INSERT INTO profiles(user_id) VALUES ($1)", [id]);
+    await recordReferral(c, id, input.ref);
     await c.query("INSERT INTO user_preferences(user_id) VALUES ($1)", [id]);
     await c.query("INSERT INTO user_eligibility(user_id) VALUES ($1)", [id]);
     await c.query(
@@ -178,6 +180,7 @@ export async function verifyEmail(token: string) {
     if (!row) fail("invalid", "This confirmation link is invalid or has expired.");
     await c.query("UPDATE users SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = $1", [row!.user_id]);
     await audit(c, { kind: "user", id: row!.user_id }, "account.email_verified", "user", row!.user_id);
+    await emit(c, "user.email_verified.v1", row!.user_id);
     return row!.user_id;
   });
 }

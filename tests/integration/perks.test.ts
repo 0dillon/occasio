@@ -33,7 +33,7 @@ describe("contributor perks (D13)", () => {
   it("refuses alerts below the threshold and for an empty filter", async () => {
     const u = await makeUser();
     await earn(u.id, 2);
-    await expect(withUser(u.id, (c) => createAlert(c, u.id, { category: "hackathon" }))).rejects.toThrow(/open up once 3/);
+    await expect(withUser(u.id, (c) => createAlert(c, u.id, { category: "hackathon" }))).rejects.toThrow(/open up at 3 credits/);
     await earn(u.id, 1);
     await expect(withUser(u.id, (c) => createAlert(c, u.id, {}))).rejects.toThrow(/at least one filter/);
     const a = await withUser(u.id, (c) => createAlert(c, u.id, { category: "hackathon", remote: "1" }));

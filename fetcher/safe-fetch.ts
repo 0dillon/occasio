@@ -119,7 +119,9 @@ function requestOnce(u: URL, pinned: { address: string; family: number }, header
         path: u.pathname + u.search, method: "GET", headers, timeout: TIMEOUT_MS,
         servername: net.isIP(u.hostname) ? undefined : u.hostname,
         // Pin the connection to the validated address.
-        lookup: (_h: string, _o: unknown, cb: (e: Error | null, a: string, f: number) => void) => cb(null, pinned.address, pinned.family),
+        // Node 20+ may ask for every address ({ all: true }); answer in either shape, always the pinned one.
+        lookup: (_h: string, o: { all?: boolean } | number | undefined, cb: (e: Error | null, a: any, f?: number) => void) =>
+          typeof o === "object" && o?.all ? cb(null, [{ address: pinned.address, family: pinned.family }]) : cb(null, pinned.address, pinned.family),
         agent: false,
       },
       (res) => {

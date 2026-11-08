@@ -39,6 +39,16 @@ export async function saveApplication(c: Db, userId: string, opportunityId: stri
   return app!.id;
 }
 
+/**
+ * D14: the person who shares an opportunity is usually applying to it, so it
+ * is added to their applications. Skipped quietly if it isn't published.
+ */
+export async function trackShared(c: Db, userId: string, opportunityId: string) {
+  const opp = await one<{ publication: string }>(c, "SELECT publication FROM opportunities WHERE id = $1", [opportunityId]);
+  if (opp?.publication !== "published") return null;
+  return saveApplication(c, userId, opportunityId);
+}
+
 export const listApplications = (c: Db, userId: string) =>
   many(
     c,

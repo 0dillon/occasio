@@ -7,8 +7,8 @@ import { DomainError } from "./errors";
 import { queueEmail } from "./outbound";
 
 /**
- * Contributor perks (D13). A perk is reached by credits EARNED from shared
- * opportunities over the account's lifetime; reaching one never spends a
+ * Contributor perks (D13). A perk is reached by credits EARNED (shared
+ * opportunities and invites, D14) over the account's lifetime; reaching one never spends a
  * credit, and later spending never takes a perk away.
  */
 const T = () => productRules.proposed.perkThresholds;
@@ -23,7 +23,7 @@ export type Perks = {
 export async function earnedCredits(c: Db, userId: string): Promise<number> {
   const r = await one<{ n: number }>(
     c,
-    "SELECT coalesce(sum(delta), 0)::int AS n FROM credit_ledger WHERE user_id = $1 AND reason = 'contribution_award'",
+    "SELECT coalesce(sum(delta), 0)::int AS n FROM credit_ledger WHERE user_id = $1 AND reason IN ('contribution_award', 'referral_award')",
     [userId],
   );
   return r?.n ?? 0;
@@ -87,7 +87,7 @@ export async function listAlerts(c: Db, userId: string) {
 export async function createAlert(c: Db, userId: string, raw: unknown) {
   const perks = await getPerks(c, userId);
   if (!perks.personalAlerts) {
-    throw new DomainError("forbidden", `Alerts open up once ${perks.thresholds.personalAlerts} of your shared opportunities have been added. You're at ${perks.earned}.`);
+    throw new DomainError("forbidden", `Alerts open up at ${perks.thresholds.personalAlerts} credits earned. You're at ${perks.earned}.`);
   }
   const q = normalise(alertQuerySchema.parse(raw));
   if (!Object.keys(q).length) throw new DomainError("invalid", "Pick at least one filter or search term, or the alert would fire for everything.");
@@ -128,7 +128,7 @@ export async function alertForPublishedOpportunity(c: Db, opportunityId: string)
         AND (s.query->>'open' IS NULL OR o.availability IN ('open', 'rolling'))
         AND NOT EXISTS (SELECT 1 FROM contribution_awards a WHERE a.opportunity_id = o.id AND a.user_id = s.user_id)
         AND (SELECT coalesce(sum(l.delta), 0) FROM credit_ledger l
-              WHERE l.user_id = s.user_id AND l.reason = 'contribution_award') >= $2
+              WHERE l.user_id = s.user_id AND l.reason IN ('contribution_award', 'referral_award')) >= $2
       ORDER BY s.user_id, s.created_at`,
     [opportunityId, T().personalAlerts],
   );
