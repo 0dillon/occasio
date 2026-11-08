@@ -66,6 +66,13 @@ Found on Windows: `worker/index.ts`, `scripts/migrate.ts` and `scripts/setup-rol
 5. Terms and privacy pages are labelled drafts and need legal review.
 6. Credentials pasted into chat during setup (the `neondb_owner` connection string and the first storage keys) should be rotated. New storage keys were already issued by `neon deploy`.
 
+## Contributor perks (D13, 2026-11-06)
+
+- Built: `src/domain/perks.ts`, migration `0004_perks_alerts.sql`, an outbox consumer on `opportunity.published.v1`, "Alert me" on Discover when filters are set, perks and alerts tiles on Credits, "Shared by you" on listing detail.
+- Tested: `tests/integration/perks.test.ts` (4 tests) covers perks following earned credits rather than the balance, the threshold and empty-filter refusals, dedupe, an alert firing only for the matching member above the threshold (in-app and email), and "Shared by you". Full suite: 76/76 passing on the local database.
+- Seen in the browser: Credits and Discover (locked state) for a new local account.
+- Not seen: the unlocked state, and an alert arriving end to end through the running worker. No local account has 3 earned credits yet.
+
 ## How to run
 
 ```bash

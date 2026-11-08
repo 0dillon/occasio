@@ -52,6 +52,13 @@ export const productRules = {
     /** Rejected poster retention. */
     rejectedAssetRetentionDays: 30,
     acceptedAssetReviewDays: 90,
+    /**
+     * Contributor perks (D13). Reached by credits EARNED from shared
+     * opportunities (lifetime), not spent. Thresholds are proposals.
+     */
+    perkThresholds: { contributorBadge: 1, personalAlerts: 3 },
+    /** Saved alert searches per member. */
+    maxAlertSearches: 5,
     sessionDays: 30,
     recentAuthMinutes: 15,
   },

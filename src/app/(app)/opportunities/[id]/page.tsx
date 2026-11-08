@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { directMatchAction, reportAction } from "@/app/actions/exchange";
+import { reportAction } from "@/app/actions/exchange";
 import { saveApplicationAction } from "@/app/actions/tracker";
 import { Bento, Tile, TileHead } from "@/components/Bento";
 import { ActionForm, Field, Submit } from "@/components/Form";
@@ -10,22 +10,23 @@ import { one } from "@/db/tx";
 import { CATEGORY_LABEL, getDetail, getPreview } from "@/domain/catalog";
 import { formatInZone } from "@/lib/time";
 import { hostOf } from "@/lib/urls";
+import { sharedBy } from "@/domain/perks";
 import { asSelf, asUser, currentProfile, requireUser } from "@/server/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   return { title: "Opportunity" };
 }
 
-export default async function OpportunityPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ unlocked?: string }> }) {
+export default async function OpportunityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { unlocked } = await searchParams;
   const user = await requireUser(`/opportunities/${id}`);
   const tz = (await currentProfile())?.timezone ?? "UTC";
   const staff = user.role !== "member";
   const preview = await asUser(user, (c) => getPreview(c, id, user.id, staff));
   if (!preview) notFound();
-  const detail = preview.unlocked || staff ? await asUser(user, (c) => getDetail(c, id, user.id, staff)) : null;
+  const detail = await asUser(user, (c) => getDetail(c, id, user.id, staff));
   const app = await asSelf(user, (c) => one<{ id: string }>(c, "SELECT id FROM applications WHERE user_id = $1 AND opportunity_id = $2", [user.id, id]));
+  const mine = await asSelf(user, (c) => sharedBy(c, id, user.id));
   const o = detail ?? preview;
 
   return (
@@ -34,7 +35,7 @@ export default async function OpportunityPage({ params, searchParams }: { params
         <div className="stack-sm" style={{ maxWidth: 820 }}>
           <div className="row">
             <span className="badge">{CATEGORY_LABEL[o.category]}</span>
-            {o.unlocked ? <span className="badge lime">Unlocked</span> : null}
+            {mine ? <span className="badge lime">Shared by you</span> : null}
             {o.is_fixture ? <span className="badge warn">Sample data · not a real opportunity</span> : null}
             {o.publication !== "published" ? <span className="badge danger">{o.publication === "hidden" ? "Withdrawn from the bank" : "Archived"}</span> : null}
           </div>
@@ -42,7 +43,6 @@ export default async function OpportunityPage({ params, searchParams }: { params
           <p className="muted" style={{ margin: 0 }}>{o.organizer}</p>
         </div>
       </header>
-      {unlocked ? <div className="alert success" role="status" style={{ marginBottom: 24 }}><strong>Unlocked.</strong>The link and full details are yours to keep. Save it to plan your application.</div> : null}
       <Bento>
         <Tile span="lg-8 md-4" as="article" label="Details">
           <TileHead kicker="About" />
@@ -68,7 +68,7 @@ export default async function OpportunityPage({ params, searchParams }: { params
           ) : null}
         </Tile>
 
-        <Tile span="lg-4 md-2" tone={o.unlocked ? "panel" : "subtle"} as="aside" label="Deadline and action">
+        <Tile span="lg-4 md-2" tone="panel" as="aside" label="Deadline and action">
           <DeadlineBlock d={o.deadline} tz={tz} />
           {detail ? (
             <div className="stack-sm">
@@ -78,20 +78,16 @@ export default async function OpportunityPage({ params, searchParams }: { params
               <span className="meta">Opens {hostOf(detail.application_url)}. Opening it doesn't mark anything as submitted.</span>
               {app ? (
                 <Link className="btn block" href={`/applications/${app.id}`}>Go to my checklist</Link>
-              ) : o.unlocked ? (
+              ) : o.publication === "published" ? (
                 <ActionForm action={saveApplicationAction}>
                   <input type="hidden" name="opportunityId" value={o.id} />
-                  <Submit className="btn block" pending="Saving…">Save and plan my application</Submit>
+                  <Submit className="btn block" pending="Saving…">Track this application</Submit>
                 </ActionForm>
               ) : null}
             </div>
           ) : (
             <div className="stack-sm">
-              <p style={{ margin: 0 }}>Unlock to see the official link and full requirements. We check the fit and freshness first; you confirm before anything is charged.</p>
-              <ActionForm action={directMatchAction}>
-                <input type="hidden" name="opportunityId" value={o.id} />
-                <Submit className="btn primary block" pending="Checking fit…">Check if it fits me</Submit>
-              </ActionForm>
+              <p style={{ margin: 0 }}>This opportunity is no longer available.</p>
             </div>
           )}
         </Tile>
@@ -105,7 +101,7 @@ export default async function OpportunityPage({ params, searchParams }: { params
               {s.excerpt ? <blockquote className="evidence" style={{ margin: 0 }}>{s.excerpt}</blockquote> : null}
             </div>
           ))}
-          {o.origin === "discovery" ? <span className="meta">Found by our source checks from an approved organizer page.</span> : o.origin === "user_submission" ? <span className="meta">Shared by a member and reviewed by a person.</span> : null}
+          {o.origin === "discovery" ? <span className="meta">Found by our source checks from an approved organizer page.</span> : o.origin === "user_submission" ? <span className="meta">Shared by a member and checked against the official page.</span> : null}
         </Tile>
 
         <Tile span="lg-6 md-3" tone="flat" label="Report a problem">

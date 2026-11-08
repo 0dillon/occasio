@@ -83,7 +83,7 @@ export async function redeemAction(_: FormState, fd: FormData): Promise<FormStat
     return toFormState(e);
   }
   revalidatePath("/", "layout");
-  redirect(`/opportunities/${opp}?unlocked=1`);
+  redirect(`/opportunities/${opp}`);
 }
 
 export async function matchFeedbackAction(fd: FormData) {

@@ -12,7 +12,7 @@ export default async function SignUp() {
     <div className="tile auth-card fade-in">
       <div className="stack-sm">
         <h1 style={{ fontSize: 32 }}>Create your account</h1>
-        <p className="muted">Share opportunities you find and unlock ones that fit you. You'll confirm your email before sharing or unlocking.</p>
+        <p className="muted">Browse open opportunities, track your applications, and earn credits for sharing what you find. You'll confirm your email before sharing.</p>
       </div>
       <ActionForm action={signUpAction}>
         <Field name="email" label="Email" type="email" autoComplete="email" inputMode="email" required />
