@@ -35,14 +35,18 @@ describe("auto-publish gate", () => {
   it("passes a clean AI extraction from a new organizer", () => {
     expect(blockersFor(clean())).toEqual([]);
   });
-  it("blocks rule-based extraction", () => {
-    expect(blockersFor(clean({ extractor: "rule-based-v1 (no AI)" }))).toContain("Page not read by the AI extractor");
+  it("passes a clean rule-based extraction (D14: no AI key required)", () => {
+    expect(blockersFor(clean({ extractor: "rule-based-v1 (no AI)" }))).toEqual([]);
   });
-  it("blocks risk flags, conflicts, missing timezone and near deadlines", () => {
+  it("passes a deadline whose timezone the page doesn't state (shown as not stated)", () => {
+    const x = clean();
+    expect(blockersFor({ ...x, deadline: { ...x.deadline, timezone: null }, missing_information: ["deadline_timezone"] })).toEqual([]);
+  });
+  it("blocks risk flags, conflicts, a missing date and near deadlines", () => {
     expect(blockersFor(clean({ risk_flags: ["Unusual payment instructions"] })).join()).toMatch(/Risk signals/);
     expect(blockersFor(clean({ conflicts: ["Deadline on page differs"] })).join()).toMatch(/Conflicts/);
     const x = clean();
-    expect(blockersFor({ ...x, deadline: { ...x.deadline, timezone: null } }).join()).toMatch(/timezone/i);
+    expect(blockersFor({ ...x, deadline: { ...x.deadline, local_date: null, source_text: null } }).join()).toMatch(/needs a date/i);
     expect(blockersFor({ ...x, deadline: { ...x.deadline, local_date: "2026-11-07" } }).join()).toMatch(/too close/);
   });
   it("blocks a deadline that only came from the contributor", () => {
@@ -78,6 +82,23 @@ describe("worker auto-publish", () => {
     expect(o.publication).toBe("published");
     expect(o.eligibility_complete).toBe(false); // browse-only until a person confirms eligibility
     expect(await balance(a.id)).toBe(before + 1);
+    // D14: the sharer is tracking it.
+    const apps = await ownerQuery("SELECT 1 FROM applications a JOIN submissions s ON s.opportunity_id = a.opportunity_id AND s.user_id = a.user_id WHERE s.id = $1", [id]);
+    expect(apps).toHaveLength(1);
+  });
+
+  it("tracks it for a second sharer without another credit", async () => {
+    await setFlag(true);
+    const a = await makeUser();
+    const b = await makeUser();
+    await processNextSubmission(async () => page, NOW, fakeExtractor(clean()));
+    await share(a.id);
+    await processNextSubmission(async () => page, NOW, fakeExtractor(clean()));
+    const id = await share(b.id);
+    await processNextSubmission(async () => page, NOW, fakeExtractor(clean()));
+    expect(await status(id)).toBe("duplicate");
+    expect(await balance(b.id)).toBe(0);
+    expect(await ownerQuery("SELECT 1 FROM applications WHERE user_id = $1", [b.id])).toHaveLength(1);
   });
 
   it("leaves it for a person when the flag is off", async () => {
@@ -88,12 +109,12 @@ describe("worker auto-publish", () => {
     expect(await status(id)).toBe("review_required");
   });
 
-  it("leaves it for a person when any check is not clean", async () => {
+  it("asks the sharer for details when any check is not clean (no review queue)", async () => {
     await setFlag(true);
     const a = await makeUser();
     const id = await share(a.id);
     await processNextSubmission(async () => page, NOW, fakeExtractor(clean({ risk_flags: ["Page promises guaranteed outcomes"] })));
-    expect(await status(id)).toBe("review_required");
+    expect(await status(id)).toBe("needs_information");
     const [run] = await ownerQuery("SELECT checks FROM verification_runs WHERE submission_id = $1", [id]);
     expect(JSON.stringify(run.checks)).toMatch(/Auto-publish/);
   });

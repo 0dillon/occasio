@@ -1,32 +1,36 @@
 import Link from "next/link";
-import { refundAction } from "@/app/actions/exchange";
 import { Bento, Empty, PageHead, Tile, TileHead } from "@/components/Bento";
-import { ActionForm, Field, Submit } from "@/components/Form";
-import { many } from "@/db/tx";
+import { deleteAlertAction } from "@/app/actions/perks";
 import { walletSummary } from "@/domain/exchange";
+import { describeAlert, getPerks, listAlerts } from "@/domain/perks";
+import { referralCode, referralSummary } from "@/domain/referrals";
+import { InviteLink } from "@/components/InviteLink";
+import { productRules } from "@/config/product-rules";
 import { formatInZone } from "@/lib/time";
-import { asSelf, currentProfile, requireUser } from "@/server/session";
+import { appOrigin, asSelf, currentProfile, requireUser } from "@/server/session";
 
 export const metadata = { title: "Credits" };
-const REASON: Record<string, string> = { contribution_award: "Shared a new opportunity", match_redemption: "Unlocked a match", refund: "Refund", correction: "Correction" };
+const REASON: Record<string, string> = { contribution_award: "Shared a new opportunity", referral_award: "Someone you invited joined", match_redemption: "Unlocked a match", refund: "Refund", correction: "Correction" };
 
 export default async function Credits() {
   const user = await requireUser("/credits");
   const tz = (await currentProfile())?.timezone ?? "UTC";
-  const { w, unlocks } = await asSelf(user, async (c) => ({
-    w: await walletSummary(c, user.id),
-    unlocks: await many(c, `SELECT e.id, e.via, e.unlocked_at, o.title, r.state AS refund_state FROM entitlements e JOIN opportunities o ON o.id = e.opportunity_id
-                             LEFT JOIN refund_requests r ON r.entitlement_id = e.id WHERE e.user_id = $1 AND e.via = 'credit' ORDER BY e.unlocked_at DESC LIMIT 20`, [user.id]),
-  }));
-  const refundable = unlocks.filter((u) => !u.refund_state);
+  const w = await asSelf(user, (c) => walletSummary(c, user.id));
+  const perks = await asSelf(user, (c) => getPerks(c, user.id));
+  const alerts = await asSelf(user, (c) => listAlerts(c, user.id));
+  const code = await asSelf(user, (c) => referralCode(c, user.id));
+  const refs = await asSelf(user, (c) => referralSummary(c, user.id));
+  const inviteUrl = `${await appOrigin()}/r/${code}`;
+  const perInvite = productRules.proposed.creditsPerReferral;
   return (
     <div className="page">
-      <PageHead title="Credits" intro="Credits are noncash. You earn one when an opportunity you share is accepted as new, and spend one to unlock a match. They can't be bought or cashed out." />
+      <PageHead title="Credits" intro="Earn credits two ways: share an opportunity you're applying to that isn't on the board yet, or invite someone who joins. The board is free for everyone. Credits can't be bought or cashed out." />
       <Bento>
         <Tile span="lg-4 md-2" tone="brand">
           <TileHead kicker="Available" />
           <div className="big-number">{w.balance}</div>
-          <span className="muted">credit{w.balance === 1 ? "" : "s"}{w.starterAvailable ? " · plus 1 free starter match" : ""}</span>
+          <span className="muted">credit{w.balance === 1 ? "" : "s"}</span>
+          {perks.contributorBadge ? <span className="badge" style={{ alignSelf: "flex-start" }}>Contributor</span> : null}
           {w.frozen ? <span className="badge">Paused while we review your account</span> : null}
           <div className="tile-actions"><Link href="/contribute" className="btn ink">Earn one: share an opportunity</Link></div>
         </Tile>
@@ -40,38 +44,49 @@ export default async function Credits() {
                   {w.ledger.map((l: any) => (
                     <tr key={l.id}>
                       <td>{formatInZone(new Date(l.created_at), tz)}</td>
-                      <td>{REASON[l.reason] ?? l.reason}{l.opportunity_title ? ` · ${l.opportunity_title}` : ""}{l.note && l.reason !== "match_redemption" && l.reason !== "contribution_award" ? ` · ${l.note}` : ""}</td>
+                      <td>{REASON[l.reason] ?? l.reason}{l.opportunity_title ? ` · ${l.opportunity_title}` : ""}{l.note && l.reason !== "match_redemption" && l.reason !== "contribution_award" && l.reason !== "referral_award" ? ` · ${l.note}` : ""}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>{l.delta > 0 ? `+${l.delta}` : l.delta}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : <Empty title="No credit activity yet">Your history is permanent: entries are never edited, only added.</Empty>}
+          ) : <Empty title="No credit activity yet">Share an opportunity you've come across. When it's added, your first credit appears here.</Empty>}
         </Tile>
-        <Tile span="lg-12" tone="flat">
-          <TileHead kicker="Something wrong with an unlock?" />
-          {refundable.length ? (
-            <ActionForm action={refundAction} className="form-grid two">
-              <Field name="entitlementId" label="Which unlock" inputId="f-ent">
-                <select id="f-ent" name="entitlementId" className="select">{refundable.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}</select>
-              </Field>
-              <Field name="reason" label="What happened" inputId="f-reason">
-                <select id="f-reason" name="reason" className="select">
-                  <option value="expired_at_redemption">It was already closed when I unlocked it</option>
-                  <option value="duplicate">I'd already unlocked the same opportunity</option>
-                  <option value="clearly_ineligible">The rules clearly exclude me</option>
-                </select>
-              </Field>
-              <div className="full"><Field name="detail" label="Details" textarea maxLength={1000} /></div>
-              <div className="full"><Submit className="btn">Ask for a review</Submit></div>
-            </ActionForm>
-          ) : <p className="muted" style={{ margin: 0 }}>Credit unlocks you can ask us to review appear here.</p>}
-          {unlocks.some((u) => u.refund_state) ? (
-            <ul className="stack-sm" style={{ margin: 0, paddingLeft: 18 }}>
-              {unlocks.filter((u) => u.refund_state).map((u) => <li key={u.id}>{u.title}: review {u.refund_state}</li>)}
+        <Tile span="lg-12" label="Invite people">
+          <TileHead kicker="Invite people" />
+          <p style={{ marginTop: 0, maxWidth: "62ch" }}>Send your link to anyone hunting for their next opening. When they join and confirm their email, you get {perInvite} credit{perInvite === 1 ? "" : "s"}.</p>
+          <InviteLink url={inviteUrl} />
+          <p className="meta" style={{ margin: 0 }}>{refs.joined ? `${refs.joined} joined with your link · ${refs.credited} earned you a credit${refs.joined > refs.confirmed ? ` · ${refs.joined - refs.confirmed} still to confirm their email` : ""}` : "Nobody has joined with your link yet."}</p>
+        </Tile>
+        <Tile span="lg-6 md-3" label="Perks">
+          <TileHead kicker="Perks" />
+          <p className="muted" style={{ marginTop: 0 }}>Perks come from the credits you've earned over time ({perks.earned} so far). Reaching one doesn't use any up.</p>
+          <ul className="perk-list">
+            <li className={perks.contributorBadge ? "done" : ""}>
+              <strong>Contributor badge</strong>
+              <span className="muted">{perks.contributorBadge ? "Unlocked. Listings you shared are marked “Shared by you”." : `At ${perks.thresholds.contributorBadge} credit earned.`}</span>
+            </li>
+            <li className={perks.personalAlerts ? "done" : ""}>
+              <strong>Personal alerts</strong>
+              <span className="muted">{perks.personalAlerts ? "Unlocked. Filter Discover and choose “Alert me”." : `At ${perks.thresholds.personalAlerts} credits earned. ${Math.max(0, perks.thresholds.personalAlerts - perks.earned)} to go.`}</span>
+            </li>
+          </ul>
+        </Tile>
+        <Tile span="lg-6 md-3" label="Your alerts">
+          <TileHead kicker="Your alerts" />
+          {alerts.length ? (
+            <ul className="perk-list">
+              {alerts.map((a) => (
+                <li key={a.id} className="row-between">
+                  <span>{a.label ?? describeAlert(a.query)}</span>
+                  <form action={deleteAlertAction}><input type="hidden" name="id" value={a.id} /><button className="btn ghost small" type="submit">Remove</button></form>
+                </li>
+              ))}
             </ul>
-          ) : null}
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>{perks.personalAlerts ? "No alerts yet. Filter Discover and choose “Alert me” to get an email and a notice when a new listing matches." : "Once alerts open up, you'll manage them here."}</p>
+          )}
         </Tile>
       </Bento>
     </div>

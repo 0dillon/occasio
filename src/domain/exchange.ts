@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { trackShared } from "./applications";
 import { productRules } from "@/config/product-rules";
 import { type Db, many, one } from "@/db/tx";
 import { normalizeUrl, hostOf } from "@/lib/urls";
@@ -167,12 +168,13 @@ export async function acceptSubmission(c: Db, submissionId: string, draft: Draft
   if ("duplicateOf" in created) {
     await c.query(
       "UPDATE submissions SET status = 'duplicate', opportunity_id = $2, resolved_at = now(), status_reason = $3 WHERE id = $1",
-      [submissionId, created.duplicateOf, "This edition is already in the bank, so it doesn't earn another credit."],
+      [submissionId, created.duplicateOf, "Already on the board, so no credit this time. It's in your applications."],
     );
     await emit(c, "submission.resolved.v1", submissionId, { status: "duplicate" });
+    await trackShared(c, sub.user_id, created.duplicateOf);
     await notify(c, sub.user_id, {
-      kind: "submission_duplicate", title: "Already shared",
-      body: "Someone already added this edition. It doesn't earn another credit, but thank you for passing it on.",
+      kind: "submission_duplicate", title: "Already on the board",
+      body: "It was already on the board, so there's no credit this time. We've added it to your applications.",
       link: `/submissions/${submissionId}`, dedupeKey: `sub-resolved:${submissionId}`,
     });
     return { kind: "duplicate", opportunityId: created.duplicateOf };
@@ -218,9 +220,11 @@ export async function acceptSubmission(c: Db, submissionId: string, draft: Draft
     [submissionId, oppId, JSON.stringify(draft), draft.evidenceSnapshotId],
   );
   await emit(c, "submission.resolved.v1", submissionId, { status: "accepted" });
+  // D14: sharing what you're applying to also starts tracking it for you.
+  await trackShared(c, sub.user_id, oppId);
   await notify(c, sub.user_id, {
-    kind: "submission_accepted", title: "Your opportunity is in.",
-    body: awarded ? "Someone else's next step starts here. You earned 1 credit." : "Someone else's next step starts here.",
+    kind: "submission_accepted", title: "Your opportunity is on the board.",
+    body: `${awarded ? "You earned 1 credit. " : ""}It's in your applications with a checklist and deadline reminders.`,
     link: `/submissions/${submissionId}`, dedupeKey: `sub-resolved:${submissionId}`,
   });
   await audit(c, actor, "submission.accepted", "submission", submissionId, { changes: { opportunity: oppId, awarded } });
@@ -241,8 +245,8 @@ export async function rejectSubmission(c: Db, submissionId: string, reason: stri
   if (!sub) fail("not_found", "Submission not found.");
   if (["accepted", "duplicate", "rejected", "withdrawn"].includes(sub.status)) fail("conflict", `Submission is already ${sub.status}.`);
   await c.query(
-    `UPDATE submissions SET status = $2, status_reason = $3, missing_information = $4,
-            resolved_at = CASE WHEN $2 = 'rejected' THEN now() ELSE NULL END WHERE id = $1`,
+    `UPDATE submissions SET status = $2::submission_status, status_reason = $3, missing_information = $4,
+            resolved_at = CASE WHEN $2::submission_status = 'rejected' THEN now() ELSE NULL END WHERE id = $1`,
     [submissionId, status, reason, missing],
   );
   // Rejected posters are purged after the retention window.

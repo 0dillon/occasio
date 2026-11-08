@@ -66,6 +66,21 @@ Found on Windows: `worker/index.ts`, `scripts/migrate.ts` and `scripts/setup-rol
 5. Terms and privacy pages are labelled drafts and need legal review.
 6. Credentials pasted into chat during setup (the `neondb_owner` connection string and the first storage keys) should be rotated. New storage keys were already issued by `neon deploy`.
 
+## Contributor perks (D13, 2026-11-06)
+
+- Built: `src/domain/perks.ts`, migration `0004_perks_alerts.sql`, an outbox consumer on `opportunity.published.v1`, "Alert me" on Discover when filters are set, perks and alerts tiles on Credits, "Shared by you" on listing detail.
+- Tested: `tests/integration/perks.test.ts` (4 tests) covers perks following earned credits rather than the balance, the threshold and empty-filter refusals, dedupe, an alert firing only for the matching member above the threshold (in-app and email), and "Shared by you". Full suite: 76/76 passing on the local database.
+- Seen in the browser: Credits and Discover (locked state) for a new local account.
+- Not seen: the unlocked state, and an alert arriving end to end through the running worker. No local account has 3 earned credits yet.
+
+## Open board, discovery and invites (D14, 2026-11-08)
+
+- Built: migration `0005_open_board_referrals.sql` (auto-publish on, Devpost source, `referral_codes`, `referrals`, `referral_award`); Devpost adapter and automatic candidate processing in `src/domain/discovery.ts`; sharing auto-tracks (`trackShared`); `src/domain/referrals.ts`, `/r/[code]`, invite tile on Credits; relaxed auto-publish gate.
+- Fixed along the way: the restricted fetcher's pinned DNS lookup failed on Node 20+ (`Invalid IP address: undefined`) because Node asks for all addresses; `rejectSubmission` failed with "inconsistent types deduced for parameter $2".
+- Tested: 91/91 (`tests/integration/open-board.test.ts`, updated `auto-publish.test.ts`). Covers the Devpost date formats, crawl, skipping invite-only, publishing, skip reasons, no credits from discovery, publishing from the record when pages return 403, auto-tracking for first and later sharers, referral award once on email confirmation, the monthly limit, and unknown codes.
+- Live, local (8 Nov 2026): the Devpost crawl found 51 open hackathons, published 41 and skipped 10 that close within 72 hours. Invite flow checked in a real browser: link, sign-up, referral recorded, email confirmed, inviter balance 1.
+- Not done: only one source (hackathons). Scholarships, fellowships and jobs need more sources. The e2e script still has the old unlock steps.
+
 ## How to run
 
 ```bash

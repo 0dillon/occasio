@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {!user.emailVerified ? (
         <div className="notice-bar" role="region" aria-label="Email confirmation">
           <div className="page">
-            <span>Confirm your email to share opportunities and unlock matches.</span>
+            <span>Confirm your email to share opportunities and earn credits.</span>
             <ActionForm action={resendVerificationAction} className="row"><Submit className="btn small" pending="Sending…">Resend link</Submit></ActionForm>
           </div>
         </div>
@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       ) : null}
       <header className="topbar">
         <div className="page topbar-inner">
-          <Link href="/home" className="brand-link" aria-label="OCCASIO home"><Logo variant="paper" /></Link>
+          <Link href="/home" className="brand-link" aria-label="OCCASIO home"><Logo variant="paper" className="brand-full" /><Logo variant="paper" kind="symbol" height={26} className="brand-compact" /></Link>
           <DesktopNav />
           <div className="topbar-actions">
             <Link href="/contribute" className="btn primary small hide-sm">

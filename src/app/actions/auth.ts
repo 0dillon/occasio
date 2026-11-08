@@ -1,4 +1,6 @@
 "use server";
+import { cookies } from "next/headers";
+import { REFERRAL_COOKIE } from "@/domain/referrals";
 import { redirect } from "next/navigation";
 import {
   reauthenticate, register, requestPasswordReset, resendVerification, resetPassword, signIn, signOut,
@@ -12,7 +14,12 @@ export async function signUpAction(_: FormState, fd: FormData): Promise<FormStat
   const v = formValues(fd);
   if (fd.get("terms") !== "on") return { error: "Please agree to the terms and privacy notice to continue.", fields: { terms: "Required" }, values: v };
   try {
-    const r = await register({ email: str(fd, "email"), password: String(fd.get("password") ?? ""), ip: await clientIp(), origin: await appOrigin() });
+    const jar = await cookies();
+    const r = await register({
+      email: str(fd, "email"), password: String(fd.get("password") ?? ""), ip: await clientIp(), origin: await appOrigin(),
+      ref: jar.get(REFERRAL_COOKIE)?.value ?? null,
+    });
+    if (r.userId) jar.delete(REFERRAL_COOKIE);
     if (r.sessionToken) {
       await setSessionCookie(r.sessionToken);
       redirect("/onboarding");

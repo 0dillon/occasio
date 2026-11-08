@@ -5,6 +5,7 @@ import { readHtml } from "@/lib/html";
 import { hostOf, normalizeUrl, siteOf } from "@/lib/urls";
 import { productRules, RULES_VERSION } from "@/config/product-rules";
 import { audit, emit, notify } from "./audit";
+import { trackShared } from "./applications";
 import { acceptSubmission, draftSchema, rejectSubmission, type Draft } from "./exchange";
 
 export type CheckResult = { check: string; status: "pass" | "fail" | "unknown"; detail: string };
@@ -69,27 +70,32 @@ export function assess(f: FetchResult, x: Extraction, ctx: { duplicateOf: string
  */
 export function autoPublishBlockers(f: FetchResult, x: Extraction, checks: CheckResult[], now: Date): string[] {
   const why: string[] = [];
-  if (!x.extractor.startsWith("claude:") || x.extractor.includes("rule-based")) why.push("Page not read by the AI extractor");
+  const rules = productRules.proposed;
+  const tzOptional = rules.autoPublishAllowsUnknownTimezone;
+  if (rules.autoPublishRequiresAi && (!x.extractor.startsWith("claude:") || x.extractor.includes("rule-based"))) why.push("Page not read by the AI extractor");
   if (f.outcome !== "ok") why.push("Official page didn't load");
   for (const c of checks) {
-    if (c.check === "Organizer identity" || c.check === "Application fee") continue; // allowed to be unknown; shown as such
+    // Allowed to be unknown; shown as such on the listing.
+    if (c.check === "Organizer identity" || c.check === "Application fee" || (tzOptional && c.check === "Deadline timezone")) continue;
     if (c.status !== "pass") why.push(`${c.check}: ${c.status}`);
   }
   if (x.deadline.origin !== "source_page" && !x.deadline.rolling) why.push("Deadline not taken from the official page");
-  if (!x.deadline.rolling && !(x.deadline.local_date && x.deadline.timezone)) why.push("Deadline needs a date and timezone");
+  if (!x.deadline.rolling && !x.deadline.local_date) why.push("Deadline needs a date");
+  if (!x.deadline.rolling && !tzOptional && !x.deadline.timezone) why.push("Deadline needs a timezone");
   if (x.deadline.local_date && !x.deadline.rolling) {
     const hoursLeft = (new Date(`${x.deadline.local_date}T00:00:00Z`).getTime() - now.getTime()) / 3_600_000;
-    if (hoursLeft < productRules.proposed.ambiguousDeadlineExclusionHours) why.push("Deadline is too close to publish without a person");
+    if (hoursLeft < productRules.proposed.ambiguousDeadlineExclusionHours) why.push(`Deadline is within ${productRules.proposed.ambiguousDeadlineExclusionHours} hours, too close to list`);
   }
   if (!x.title.value || x.title.origin !== "source_page") why.push("Title not confirmed on the page");
   if (!x.organizer.value) why.push("Organizer not identified");
   if (!x.category.value) why.push("Category not identified");
-  if (x.missing_information.length) why.push(`Missing: ${x.missing_information.join(", ")}`);
+  const missing = x.missing_information.filter((m) => !(tzOptional && m === "deadline_timezone"));
+  if (missing.length) why.push(`Missing: ${missing.join(", ")}`);
   return why;
 }
 
 /** Canonical draft for an auto-published submission. Eligibility stays unconfirmed (browse-only, not redeemable). */
-function autoDraft(sub: any, x: Extraction, f: FetchResult, snapshotId: string, now: Date): Draft {
+export function autoDraft(sub: any, x: Extraction, f: FetchResult, snapshotId: string, now: Date): Draft {
   return draftSchema.parse({
     title: x.title.value, organizer: x.organizer.value, programme: x.title.value,
     editionKey: (x.deadline.local_date ?? now.toISOString()).slice(0, 4),
@@ -176,9 +182,10 @@ export async function processNextSubmission(fetcher = restrictedFetch, now = new
     await c.query("UPDATE submissions SET candidate = $2, lease_until = NULL WHERE id = $1", [id, JSON.stringify({ extraction: x, snapshotId: snap })]);
     const actor = { kind: "worker" as const };
     if (decision === "duplicate") {
-      await c.query("UPDATE submissions SET status = 'duplicate', opportunity_id = $2, resolved_at = now(), status_reason = 'This opportunity is already in the bank, so it doesn''t earn another credit.' WHERE id = $1", [id, dup]);
+      await c.query("UPDATE submissions SET status = 'duplicate', opportunity_id = $2, resolved_at = now(), status_reason = 'Already on the board, so no credit this time. It''s in your applications.' WHERE id = $1", [id, dup]);
       await emit(c, "submission.resolved.v1", id, { status: "duplicate" });
-      await notify(c, sub.user_id, { kind: "submission_duplicate", title: "Already shared", body: "This one is already in the bank. Thanks for passing it on.", link: `/submissions/${id}`, dedupeKey: `sub-resolved:${id}` });
+      if (dup) await trackShared(c, sub.user_id, dup);
+      await notify(c, sub.user_id, { kind: "submission_duplicate", title: "Already on the board", body: "It was already on the board, so there's no credit this time. We've added it to your applications.", link: `/submissions/${id}`, dedupeKey: `sub-resolved:${id}` });
     } else if (decision === "rejected_closed") {
       await c.query("UPDATE submissions SET status = 'review_required' WHERE id = $1", [id]);
       await rejectSubmission(c, id, "The official page shows this deadline has passed. We kept the evidence in case it was extended.", actor);
@@ -197,6 +204,13 @@ export async function processNextSubmission(fetcher = restrictedFetch, now = new
       if (draft) {
         const r = await acceptSubmission(c, id, draft, actor);
         await audit(c, actor, "submission.auto_published", "submission", id, { changes: { opportunity: r.opportunityId, kind: r.kind } });
+      } else if (!flag("auto_publish_enabled")) {
+        // Auto-publish switched off by an admin: leave it for a person.
+      } else {
+        // D14: no review queue. Tell the sharer exactly what the page didn't show, so they can add it.
+        const reasons = blockers.length ? blockers : ["The details on the page couldn't be read reliably"];
+        await rejectSubmission(c, id, `We couldn't confirm everything on the official page: ${reasons.join("; ")}. Add the missing details and we'll check again.`,
+          actor, "needs_information", x.missing_information);
       }
     }
     await audit(c, actor, "submission.verified", "submission", id, { changes: { decision } });

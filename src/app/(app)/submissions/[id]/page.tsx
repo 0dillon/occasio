@@ -79,7 +79,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         {checks.length ? (
           <Tile span="lg-12" tone="flat">
             <TileHead kicker="Automated checks" />
-            <span className="meta">From {s.last_run.extractor}. Automated checks don't decide on their own; a person reviews before anything is published.</span>
+            <span className="meta">From {s.last_run.extractor}. Listings publish automatically only when every check above passes.</span>
             <ul className="list">
               {checks.map((c) => (
                 <li key={c.check} className="row-between">
