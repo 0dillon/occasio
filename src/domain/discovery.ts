@@ -66,6 +66,8 @@ async function loadListing(src: any, fetcher: typeof restrictedFetch): Promise<{
     } catch {
       items = [];
     }
+  } else if (src.adapter === "outbound_listing") {
+    items = outboundLinks(r.body, r.finalUrl ?? src.base_url, src.domain);
   } else {
     const page = readHtml(r.body, r.finalUrl ?? undefined);
     const scopeHost = new URL(src.base_url).hostname;
@@ -116,13 +118,41 @@ export function leadFromPost(post: { link?: string; title?: { rendered?: string 
   }
   const pick = links.find((l) => LEAD_PREFER_TEXT.test(l.text)) ?? links[0];
   if (!pick) return null;
-  const t = title.toLowerCase();
-  const category = /internship/.test(t) ? "internship" : /fellowship/.test(t) ? "fellowship" : /competition|contest|essay|challenge/.test(t) ? "competition"
-    : /grant/.test(t) ? "grant" : /scholarship|studentship|bursar|fully funded|masters|phd/.test(t) ? "scholarship" : undefined;
+  const category = guessCategory(title);
   return {
     title: title.replace(/\s*\|\s*.*$/, "").slice(0, 200), url: pick.href, category, deadline: dl[1]!,
     structured: "lead", lead_url: post.link?.slice(0, 500),
   };
+}
+
+/**
+ * Official catalogues (e.g. the EU's Erasmus Mundus catalogue) list programmes
+ * run by other organisations and link to each programme's own site. Each
+ * outbound link is a candidate; the programme's page is what gets checked.
+ */
+const OUTBOUND_SKIP_HOSTS = /(^|\.)(europa\.eu|twitter\.com|x\.com|facebook\.com|linkedin\.com|instagram\.com|youtube\.com|youtu\.be|flickr\.com|tiktok\.com)$/i;
+
+export function outboundLinks(html: string, pageUrl: string, ownDomain: string): SourceCandidate[] {
+  const page = readHtml(html, pageUrl);
+  const seen = new Set<string>();
+  const out: SourceCandidate[] = [];
+  for (const l of page.links) {
+    let u: URL;
+    try { u = new URL(l.href); } catch { continue; }
+    if (!/^https?:$/.test(u.protocol) || l.text.length < 8 || /^https?:\/\//i.test(l.text)) continue;
+    if (OUTBOUND_SKIP_HOSTS.test(u.hostname) || u.hostname === ownDomain || u.hostname.endsWith(`.${ownDomain}`)) continue;
+    const key = u.toString();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ title: l.text.slice(0, 200), url: key, category: guessCategory(l.text) });
+  }
+  return out;
+}
+
+function guessCategory(title: string): string | undefined {
+  const t = title.toLowerCase();
+  return /internship/.test(t) ? "internship" : /fellowship/.test(t) ? "fellowship" : /competition|contest|essay|challenge/.test(t) ? "competition"
+    : /grant/.test(t) ? "grant" : /scholarship|studentship|bursar|fully funded|master|phd/.test(t) ? "scholarship" : undefined;
 }
 
 async function loadWordpressLeads(src: any, fetcher: typeof restrictedFetch) {

@@ -63,3 +63,11 @@ Founder asked to include Scholarship Region after being told most of its posts d
 - Network errors and rate limits are retried later (up to 3 tries) instead of counting as a verdict.
 - Expected yield is low. In the first live run, 40 posts gave 4 leads and 0 publishable pages: the linked pages were general pages without the specific deadline.
 
+
+## D16. Official scholarship sources (founder decision, 2026-11-09)
+Founder approved adding sources run by the funders themselves, after D15 showed blog leads rarely reach a page that states the deadline.
+- Commonwealth Scholarships (cscuk.fcdo.gov.uk, robots.txt allows all): existing `html_listing` adapter over `/scholarships/`.
+- Erasmus Mundus catalogue (www.eacea.ec.europa.eu, robots.txt disallows only admin/system paths): new `outbound_listing` adapter. The catalogue links to each joint master's own site; those links are the candidates, and EU, social and bare-URL links are ignored.
+- Both crawl once a day, 5 seconds between requests. Every candidate page goes through the same checks; nothing publishes without a dated deadline on the official page.
+- Considered and not added yet: DAAD (deadlines load from a script, not the page), Chevening, Mastercard Foundation and Study in Holland (robots.txt didn't respond to our agent), Gates Cambridge and Rhodes (no dated deadline on the apply pages we checked).
+- First live run: 26 candidates, 2 published (Commonwealth Shared Scholarships; Erasmus Mundus STEPS). Most programme homepages put the deadline on a separate admissions page, so they were rejected for having no dated deadline.

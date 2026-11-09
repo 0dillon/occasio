@@ -80,6 +80,7 @@ Found on Windows: `worker/index.ts`, `scripts/migrate.ts` and `scripts/setup-rol
 - Tested: 91/91 (`tests/integration/open-board.test.ts`, updated `auto-publish.test.ts`). Covers the Devpost date formats, crawl, skipping invite-only, publishing, skip reasons, no credits from discovery, publishing from the record when pages return 403, auto-tracking for first and later sharers, referral award once on email confirmation, the monthly limit, and unknown codes.
 - Live, local (8 Nov 2026): the Devpost crawl found 51 open hackathons, published 41 and skipped 10 that close within 72 hours. Invite flow checked in a real browser: link, sign-up, referral recorded, email confirmed, inviter balance 1.
 - Scholarship Region (D15, migration 0006): live run on 8 Nov 2026. 40 posts read, 4 leads, 0 published: the linked organizer pages didn't state the deadline. One lead is waiting to retry after an HTTP 429. 94/94 tests pass.
+- Official scholarship sources (D16, migration 0007): live run on 9 Nov 2026. Commonwealth: 6 candidates, 1 published. Erasmus Mundus catalogue: 20 candidates, 1 published; 17 rejected across both for no dated deadline on the page, 3 pages failed to load, 2 had passed deadlines. 95/95 tests pass.
 - Not done: Devpost is the only source that publishes in volume (hackathons). Scholarships, fellowships and jobs need more sources. The e2e script still has the old unlock steps.
 
 ## How to run

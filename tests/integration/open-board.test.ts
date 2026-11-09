@@ -3,7 +3,7 @@ import type { FetchResult } from "@/adapters/fetch-client";
 import { extractionSchema, type Extraction, type Extractor } from "@/adapters/extractor";
 import { withAnon, withUser, withWorker } from "@/db/tx";
 import { register, verifyEmail } from "@/domain/auth";
-import { crawlDueSources, devpostEndDate, leadFromPost, triageCandidates } from "@/domain/discovery";
+import { crawlDueSources, devpostEndDate, leadFromPost, outboundLinks, triageCandidates } from "@/domain/discovery";
 import { dispatchOutbox } from "@/domain/outbox";
 import { awardReferral, referralCode } from "@/domain/referrals";
 import { closePools, ownerQuery, resetDb } from "../helpers/db";
@@ -189,5 +189,20 @@ describe("referral credits (D14)", () => {
     }
     expect(await balance(referrer.id)).toBe(10);
     expect(await ownerQuery("SELECT 1 FROM referrals WHERE award_note = 'Monthly referral limit reached'")).toHaveLength(1);
+  });
+});
+
+describe("official catalogue links (D16)", () => {
+  it("keeps programme links that leave the catalogue and drops its own, social and bare-URL links", () => {
+    const html = `<html><body>
+      <a href="https://epsmaster.eu/"><span>European Politics and Society Joint Master</span></a>
+      <a href="https://epsmaster.eu/">European Politics and Society Joint Master</a>
+      <a href="https://erasmus-plus.ec.europa.eu/projects/1">Project overview page</a>
+      <a href="/scholarships_en">All scholarships here</a>
+      <a href="https://www.linkedin.com/company/x">Follow us on LinkedIn</a>
+      <a href="https://master-cne.eu/">https://master-cne.eu/</a>
+    </body></html>`;
+    const items = outboundLinks(html, "https://www.eacea.ec.europa.eu/scholarships/erasmus-mundus-catalogue_en", "www.eacea.ec.europa.eu");
+    expect(items).toEqual([{ title: "European Politics and Society Joint Master", url: "https://epsmaster.eu/", category: "scholarship" }]);
   });
 });
