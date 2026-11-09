@@ -149,6 +149,24 @@ export function outboundLinks(html: string, pageUrl: string, ownDomain: string):
   return out;
 }
 
+const ADMISSIONS_TEXT = /(admission|how to apply|apply now|^apply$|application|deadline|call for applications|scholarships?$)/i;
+
+/** The best same-site link to an admissions / how-to-apply page, or null. */
+export function admissionsLink(links: { href: string; text: string }[], pageUrl: string): string | null {
+  let base: URL;
+  try { base = new URL(pageUrl); } catch { return null; }
+  const strip = (h: string) => h.replace(/^www\./, "");
+  for (const l of links) {
+    let u: URL;
+    try { u = new URL(l.href, base); } catch { continue; }
+    if (strip(u.hostname) !== strip(base.hostname) || LEAD_SKIP_PATHS.test(u.pathname)) continue;
+    u.hash = "";
+    if (u.toString() === base.toString()) continue;
+    if (ADMISSIONS_TEXT.test(l.text.trim()) || /(admission|apply|application|deadline)/i.test(u.pathname)) return u.toString();
+  }
+  return null;
+}
+
 function guessCategory(title: string): string | undefined {
   const t = title.toLowerCase();
   return /internship/.test(t) ? "internship" : /fellowship/.test(t) ? "fellowship" : /competition|contest|essay|challenge/.test(t) ? "competition"
@@ -378,7 +396,7 @@ async function processCandidate(r: { id: string; url: string; payload: any }, fe
       [r.id, tries, `Retrying after: ${f.outcome}${f.status ? ` ${f.status}` : ""}${f.detail ? ` (${f.detail.slice(0, 120)})` : ""}`]));
     return false;
   }
-  const page = f.outcome === "ok" && f.body && (f.contentType ?? "").includes("html") ? readHtml(f.body, f.finalUrl ?? undefined) : null;
+  let page = f.outcome === "ok" && f.body && (f.contentType ?? "").includes("html") ? readHtml(f.body, f.finalUrl ?? undefined) : null;
   // Devpost refuses automated requests for hackathon pages (HTTP 403). We don't
   // get around that; its own public list record is the official listing instead.
   const fromRecord = r.payload?.structured === "devpost" && f.outcome !== "ok" ? devpostRecord(r) : null;
@@ -396,6 +414,19 @@ async function processCandidate(r: { id: string; url: string; payload: any }, fe
       x = await extractor.extract({ page, pageUrl: f.finalUrl, claims, hasPoster: false, now });
     } catch {
       x = await ruleBasedExtractor.extract({ page, pageUrl: f.finalUrl, claims, hasPoster: false, now });
+    }
+    // Programme homepages often keep the deadline on an admissions page. Follow
+    // one same-site link that says so; that page becomes the evidence.
+    const next = !x.deadline.local_date && page ? admissionsLink(page.links, f.finalUrl ?? r.url) : null;
+    if (next) {
+      const f2 = await fetcher(next);
+      const page2 = f2.outcome === "ok" && f2.body && (f2.contentType ?? "").includes("html") ? readHtml(f2.body, f2.finalUrl ?? undefined) : null;
+      if (page2) {
+        let x2: Extraction;
+        try { x2 = await extractor.extract({ page: page2, pageUrl: f2.finalUrl, claims, hasPoster: false, now }); }
+        catch { x2 = await ruleBasedExtractor.extract({ page: page2, pageUrl: f2.finalUrl, claims, hasPoster: false, now }); }
+        if (x2.deadline.local_date) { f = f2; page = page2; x = x2; }
+      }
     }
   }
   const dup = await existingFor([r.url, f.finalUrl].filter(Boolean) as string[]);

@@ -3,7 +3,7 @@ import type { FetchResult } from "@/adapters/fetch-client";
 import { extractionSchema, type Extraction, type Extractor } from "@/adapters/extractor";
 import { withAnon, withUser, withWorker } from "@/db/tx";
 import { register, verifyEmail } from "@/domain/auth";
-import { crawlDueSources, devpostEndDate, leadFromPost, outboundLinks, triageCandidates } from "@/domain/discovery";
+import { admissionsLink, crawlDueSources, devpostEndDate, leadFromPost, outboundLinks, triageCandidates } from "@/domain/discovery";
 import { dispatchOutbox } from "@/domain/outbox";
 import { awardReferral, referralCode } from "@/domain/referrals";
 import { closePools, ownerQuery, resetDb } from "../helpers/db";
@@ -204,5 +204,18 @@ describe("official catalogue links (D16)", () => {
     </body></html>`;
     const items = outboundLinks(html, "https://www.eacea.ec.europa.eu/scholarships/erasmus-mundus-catalogue_en", "www.eacea.ec.europa.eu");
     expect(items).toEqual([{ title: "European Politics and Society Joint Master", url: "https://epsmaster.eu/", category: "scholarship" }]);
+  });
+});
+
+describe("admissions page hop (D16)", () => {
+  it("picks a same-site admissions link and ignores other sites and logins", () => {
+    const links = [
+      { href: "https://other.org/admissions", text: "Admissions" },
+      { href: "https://www.example.eu/login", text: "Apply now" },
+      { href: "https://www.example.eu/about", text: "About the programme" },
+      { href: "https://example.eu/admission/", text: "Admission" },
+    ];
+    expect(admissionsLink(links, "https://www.example.eu/")).toBe("https://example.eu/admission/");
+    expect(admissionsLink(links.slice(0, 3), "https://www.example.eu/")).toBeNull();
   });
 });
